@@ -270,6 +270,16 @@ function cacheDomRefs() {
   reviewCurrentLocation = document.getElementById('reviewCurrentLocation');
   reviewOccupation = document.getElementById('reviewOccupation');
   stepPanels = [...document.querySelectorAll('.step-panel')];
+
+  logSubmitDebug('DOM refs cached', {
+    formFound: Boolean(form),
+    statusMessageFound: Boolean(statusMessage),
+    submitBtnFound: Boolean(submitBtn),
+    saveTargetTextFound: Boolean(saveTargetText),
+    draftHintTextFound: Boolean(draftHintText),
+    wizardProgressFound: Boolean(wizardProgress),
+    stepPanelCount: stepPanels.length,
+  });
 }
 
 let currentStep = 0;
@@ -290,6 +300,17 @@ const FRONTEND_CONFIG = {
 };
 
 let firestoreDb = null;
+const SUBMIT_DEBUG_ENABLED = true;
+
+function logSubmitDebug(stage, payload = null) {
+  if (!SUBMIT_DEBUG_ENABLED) return;
+  const time = new Date().toISOString();
+  if (payload === null) {
+    console.log(`[Family3 Submit Debug][${time}] ${stage}`);
+    return;
+  }
+  console.log(`[Family3 Submit Debug][${time}] ${stage}`, payload);
+}
 
 export function initFamilyForm() {
   cacheDomRefs();
@@ -746,39 +767,91 @@ function updateDeathFields() {
 
 async function handleSubmit(event) {
   event.preventDefault();
+  logSubmitDebug('Submit triggered', {
+    currentStep,
+    totalSteps: stepPanels.length,
+    firestoreReady: Boolean(firestoreDb),
+  });
   clearDuplicatePreview();
   setStatus('');
 
   if (!validateCurrentStep()) {
+    logSubmitDebug('Submit stopped: current step validation failed', { currentStep });
     setStatus(t('status.requiredBeforeSubmit'), true);
     return;
   }
   if (!form.reportValidity()) {
+    logSubmitDebug('Submit stopped: native form validity failed');
     setStatus(t('status.fixHighlighted'), true);
     return;
   }
 
   submitBtn.disabled = true;
   submitBtn.textContent = t('buttons.submitting');
+  logSubmitDebug('Submit button locked');
 
   try {
-    if (!firestoreDb) firestoreDb = initializeFirebase(FRONTEND_CONFIG.firebase);
+    if (!firestoreDb) {
+      logSubmitDebug('Initialising Firebase during submit');
+      firestoreDb = initializeFirebase(FRONTEND_CONFIG.firebase);
+    }
+
     const submission = buildSubmissionObject();
+    logSubmitDebug('Submission object built', {
+      id: submission.id,
+      personName: submission.person.name,
+      birthDate: submission.person.birthDate,
+      hasPhoto: Boolean(submission.person.photo),
+    });
+
     const duplicateMatch = await findExistingPersonByFullName(firestoreDb, submission.person.name);
+    logSubmitDebug('Duplicate check completed', {
+      duplicateFound: Boolean(duplicateMatch),
+      duplicateDocumentId: duplicateMatch?.documentId || null,
+    });
+
     if (duplicateMatch) {
       renderDuplicatePreview(duplicateMatch);
       setStatus(t('status.duplicateStopped'), true);
+      logSubmitDebug('Submit stopped: duplicate record found', {
+        duplicateDocumentId: duplicateMatch.documentId,
+      });
       return;
     }
+
+    logSubmitDebug('Uploading pending photos');
     await uploadPendingPhotos(submission, FRONTEND_CONFIG.imgbbApiKey || '');
+    logSubmitDebug('Pending photo upload finished', {
+      hasPersonPhoto: Boolean(submission.person.photo),
+    });
+
     const savedDocumentId = await saveSubmissionToFirebase(firestoreDb, submission);
+    logSubmitDebug('Submission saved to Firebase', {
+      savedDocumentId,
+      submissionId: submission.id,
+    });
+
     await logSavedSubmissionFromFirebase(firestoreDb, savedDocumentId);
+    logSubmitDebug('Saved submission re-read from Firebase', { savedDocumentId });
 
     localStorage.removeItem(DRAFT_KEY);
     lastAutoSaveStamp = '';
     setStatus(t('status.submittedSuccess'), false, true);
-    saveTargetText.innerHTML = t('hero.saveTargetLatest');
-    draftHintText.textContent = t('hero.autoSave');
+    logSubmitDebug('Draft cleared and success status set');
+
+    if (saveTargetText) {
+      saveTargetText.innerHTML = t('hero.saveTargetLatest');
+      logSubmitDebug('Updated saveTargetText copy');
+    } else {
+      logSubmitDebug('saveTargetText element missing; skipping innerHTML update');
+    }
+
+    if (draftHintText) {
+      draftHintText.textContent = t('hero.autoSave');
+      logSubmitDebug('Updated draftHintText copy');
+    } else {
+      logSubmitDebug('draftHintText element missing; skipping textContent update');
+    }
 
     form.reset();
     PHOTO_STORE.clear();
@@ -788,12 +861,18 @@ async function handleSubmit(event) {
     currentStep = 0;
     updateDeathFields();
     updateWizardUI();
+    logSubmitDebug('Form reset completed');
   } catch (error) {
     console.error(error);
+    logSubmitDebug('Submit failed with error', {
+      message: error?.message || String(error),
+      stack: error?.stack || null,
+    });
     setStatus(error.message || t('status.fixHighlighted'), true);
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = t('buttons.submit');
+    logSubmitDebug('Submit button unlocked');
   }
 }
 
