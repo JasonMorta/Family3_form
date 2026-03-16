@@ -5,10 +5,10 @@ export const GlobalStyle = createGlobalStyle`
 :root {
   --bg: #090b0f;
   --bg-2: #0f1218;
-  --shell: linear-gradient(180deg, rgba(18, 21, 28, 0.82), rgba(11, 13, 18, 0.88));
-  --panel: rgba(19, 22, 29, 0.78);
-  --panel-2: rgba(24, 28, 36, 0.76);
-  --panel-3: rgba(18, 22, 29, 0.92);
+  --shell: linear-gradient(180deg, rgba(18, 21, 28, 0.68), rgba(11, 13, 18, 0.78));
+  --panel: rgba(19, 22, 29, 0.66);
+  --panel-2: rgba(24, 28, 36, 0.62);
+  --panel-3: rgba(18, 22, 29, 0.8);
   --text: #f5f0dd;
   --text-soft: #e6dcc0;
   --muted: #b8af97;
@@ -34,16 +34,17 @@ html, body {
   margin: 0;
   padding: 0;
   font-family: Inter, system-ui, sans-serif;
-  background:
-    radial-gradient(circle at 20% 12%, rgba(209, 177, 92, 0.10), transparent 30%),
-    radial-gradient(circle at 80% 0%, rgba(209, 177, 92, 0.06), transparent 18%),
-    linear-gradient(180deg, #080a0d 0%, #0c0f14 48%, #090b0f 100%);
+  background: #090b0f;
   color: var(--text);
 }
 
 body { min-height: 100vh; }
 
+#root { min-height: 100vh; }
+
 .page-shell {
+  position: relative;
+  z-index: 1;
   max-width: 1120px;
   margin: 0 auto;
   padding: 30px 18px 64px;
@@ -146,7 +147,7 @@ body { min-height: 100vh; }
 .wizard-shell {
   background: var(--shell);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .wizard-progress {
@@ -693,6 +694,11 @@ body { min-height: 100vh; }
     flex-direction: column;
     align-items: flex-start;
   }
+
+  .field input[type="date"] {
+  min-width: 300px;
+  width: fit-content;
+}
 
   .language-switcher {
     width: 100%;

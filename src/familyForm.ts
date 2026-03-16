@@ -406,7 +406,10 @@ function goToStep(targetStep, allowJump = false) {
   currentStep = targetStep;
   persistDraft();
   updateWizardUI();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.getElementById('wizardProgress')?.scrollIntoView({
+  behavior: 'smooth',
+  block: 'start',
+});
 }
 
 function validateCurrentStep() {
