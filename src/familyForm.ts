@@ -51,8 +51,8 @@ const translations = {
       title: 'Add a family member',
       copy: 'Every family tree becomes more meaningful with fuller stories, stronger links, and clearer history. Only your full name and birth date are required, but taking a little extra time to complete the rest of this form can help preserve relationships, memories, and details that may matter deeply to your family in the future.',
       firebaseEnabled: 'Firebase submit mode enabled',
-      saveTarget: 'New records will be stored in the Firestore collection <strong>Three Family List</strong>.',
-      saveTargetLatest: 'Latest save target: <strong>Three Family List</strong> (new record created).',
+      saveTarget: 'New records will be stored in the Firestore collection <strong>Family3_Form_Submissions</strong>.',
+      saveTargetLatest: 'Latest save target: <strong>Family3_Form_Submissions</strong> (new record created).',
       autoSave: 'Your progress saves automatically on this device while you type.',
       restored: 'Saved progress was restored on this device.',
       autoSavedAt: 'Saved automatically on this device. Last saved: {{stamp}}.',
@@ -136,8 +136,8 @@ const translations = {
       title: 'Voeg ’n familielid by',
       copy: 'Elke stamboom word meer betekenisvol met voller stories, sterker skakels en duideliker geskiedenis. Net jou volle naam en geboortedatum is verpligtend, maar as jy ’n bietjie ekstra tyd neem om die res van hierdie vorm in te vul, kan dit help om verhoudings, herinneringe en besonderhede te bewaar wat later baie vir jou familie kan beteken.',
       firebaseEnabled: 'Firebase indienmodus is geaktiveer',
-      saveTarget: 'Nuwe rekords sal in die Firestore-versameling <strong>Three Family List</strong> gestoor word.',
-      saveTargetLatest: 'Nuutste stoorplek: <strong>Three Family List</strong> (nuwe rekord geskep).',
+      saveTarget: 'Nuwe rekords sal in die Firestore-versameling <strong>Family3_Form_Submissions</strong> gestoor word.',
+      saveTargetLatest: 'Nuutste stoorplek: <strong>Family3_Form_Submissions</strong> (nuwe rekord geskep).',
       autoSave: 'Jou vordering word outomaties op hierdie toestel gestoor terwyl jy tik.',
       restored: 'Gestoorde vordering is op hierdie toestel herstel.',
       autoSavedAt: 'Outomaties op hierdie toestel gestoor. Laas gestoor: {{stamp}}.',
@@ -907,7 +907,7 @@ function initializeFirebase(firebaseConfig) {
 }
 
 async function saveSubmissionToFirebase(db, submission) {
-  const collectionRef = db.collection('Three Family List');
+  const collectionRef = db.collection('Family3_Form_Submissions');
   const docRef = await collectionRef.add(submission);
   return docRef.id;
 }
@@ -915,7 +915,7 @@ async function saveSubmissionToFirebase(db, submission) {
 async function findExistingPersonByFullName(db, fullName) {
   const normalizedName = normalizeComparableValue(fullName);
   if (!normalizedName) return null;
-  const snapshot = await db.collection('Three Family List').get();
+  const snapshot = await db.collection('Family3_Form_Submissions').get();
   for (const doc of snapshot.docs) {
     const record = doc.data() || {};
     const recordName = normalizeComparableValue(record?.person?.name || '');
@@ -944,7 +944,7 @@ function clearDuplicatePreview() {
 }
 
 async function logSavedSubmissionFromFirebase(db, documentId) {
-  const docSnapshot = await db.collection('Three Family List').doc(documentId).get();
+  const docSnapshot = await db.collection('Family3_Form_Submissions').doc(documentId).get();
   if (!docSnapshot.exists) {
     console.warn('The saved Firebase record could not be loaded again for console logging.', documentId);
     return;
