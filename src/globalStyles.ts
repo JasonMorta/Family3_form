@@ -143,6 +143,12 @@ body { min-height: 100vh; }
   color: #d7efdb;
 }
 
+.access-message[data-state='info'] {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
 .access-message[data-state='loading'] {
   display: inline-flex;
   align-items: center;

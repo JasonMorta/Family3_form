@@ -52,7 +52,7 @@ const translations = {
       title: 'Add a family member',
       familyReferenceValid: 'Family reference: {{family}} ✓',
       familyReferencePending: 'Family reference: {{family}}',
-      familyReferenceMissing: 'This form needs a valid family link before it can open.',
+      familyReferenceMissing: 'Please use the correct family link to open and complete this form.',
       editModeMessage: 'Editing {{person}} for {{family}}.',
       copy: 'Every family tree becomes more meaningful with fuller stories, stronger links, and clearer history. Only your full name and birth date are required, but taking a little extra time to complete the rest of this form can help preserve relationships, memories, and details that may matter deeply to your family in the future.',
       firebaseEnabled: 'Firebase submit mode enabled',
@@ -129,6 +129,14 @@ const translations = {
       requiredBeforeSubmit: 'Please complete the required fields before submitting.', fixHighlighted: 'Please fix the highlighted fields before submitting.',
       duplicateTitle: 'This person already exists.', duplicateStopped: 'A person with this full name already exists.',
       duplicateName: 'Name',
+      missingFamilyLink: 'Please use the correct family link to open and complete this form.',
+      invalidFamilyLink: 'This form link is not active for a valid family tree. Please use the correct link.',
+      invalidEditLink: 'This edit link is no longer valid for this family tree. Please ask for a new link.',
+      familyNotFound: 'That family tree could not be found right now. Please use the correct family link.',
+      familyCheckFailed: 'The family link could not be checked right now. Please try again.',
+      loadingFamily: 'Opening the family form…',
+      loadingEditLink: "Loading this person's details…",
+      updatePerson: 'Update person',
       firebaseInitFailed: 'Firebase could not be initialised. Check your config values.',
       submittedSuccess: 'Form submitted successfully to Firebase.',
       restartCountdown: 'Form submitted successfully. This form will restart in {{seconds}} seconds.',
@@ -143,7 +151,7 @@ const translations = {
       title: 'Voeg ’n familielid by',
       familyReferenceValid: 'Familieverwysing: {{family}} ✓',
       familyReferencePending: 'Familieverwysing: {{family}}',
-      familyReferenceMissing: 'Hierdie vorm het ’n geldige familieskakel nodig voordat dit kan oopmaak.',
+      familyReferenceMissing: 'Gebruik asseblief die korrekte familieskakel om hierdie vorm oop te maak en te voltooi.',
       editModeMessage: 'Jy wysig {{person}} vir {{family}}.',
       copy: 'Elke stamboom word meer betekenisvol met voller stories, sterker skakels en duideliker geskiedenis. Net jou volle naam en geboortedatum is verpligtend, maar as jy ’n bietjie ekstra tyd neem om die res van hierdie vorm in te vul, kan dit help om verhoudings, herinneringe en besonderhede te bewaar wat later baie vir jou familie kan beteken.',
       firebaseEnabled: 'Firebase indienmodus is geaktiveer',
@@ -218,9 +226,11 @@ const translations = {
       requiredBeforeSubmit: 'Voltooi asseblief die verpligte velde voordat jy indien.', fixHighlighted: 'Maak asseblief die uitgeligde velde reg voordat jy indien.',
       duplicateTitle: 'Hierdie persoon bestaan reeds.', duplicateStopped: '’n Persoon met hierdie volle naam bestaan reeds in Firebase. Indiening is gestop.',
       duplicateName: 'Naam',
-      missingFamilyLink: 'Gebruik asseblief die korrekte familieskakel om hierdie vorm oop te maak en in te vul.',
+      missingFamilyLink: 'Gebruik asseblief die korrekte familieskakel om hierdie vorm oop te maak en te voltooi.',
       invalidFamilyLink: 'Hierdie vormskakel is nie aktief vir ’n geldige stamboom nie. Gebruik asseblief die korrekte skakel.',
       invalidEditLink: 'Hierdie wysigskakel is nie meer geldig vir hierdie stamboom nie. Vra asseblief vir ’n nuwe skakel.',
+      familyNotFound: 'Daardie stamboom kon nie nou gevind word nie. Gebruik asseblief die korrekte familieskakel.',
+      familyCheckFailed: 'Die familieskakel kon nie nou nagegaan word nie. Probeer asseblief weer.',
       loadingFamily: 'Die familievorm word gelaai…',
       loadingEditLink: 'Hierdie persoon se besonderhede word gelaai…',
       updatePerson: 'Werk persoon by',
@@ -442,12 +452,12 @@ async function verifyCurrentFamilySelection() {
       await refreshRelationshipAutocompleteOptions();
       persistDraft();
     } else {
-      setStatus('That family tree could not be found. Choose a valid family before submitting.', true);
+      setStatus(t('status.familyNotFound'), true);
     }
   } catch (error) {
     if (validationToken !== familyValidationToken) return false;
     currentFamilyIsVerified = false;
-    setStatus('The family tree could not be checked right now. Please try again.', true);
+    setStatus(t('status.familyCheckFailed'), true);
   }
 
   updateFamilyContextUi();
@@ -516,6 +526,30 @@ function setFormLoadingState(messageKey = 'status.loadingFamily', messageVars = 
     const resolvedMessage = messageKey ? t(messageKey, messageVars) : '';
     formAccessMessage.textContent = resolvedMessage;
     formAccessMessage.dataset.state = 'loading';
+    formAccessMessage.dataset.messageKey = messageKey || '';
+    formAccessMessage.dataset.messageVars = messageKey ? JSON.stringify(messageVars || {}) : '';
+    formAccessMessage.classList.toggle('hidden', !resolvedMessage);
+  }
+
+  if (draftHintText) {
+    draftHintText.classList.add('hidden');
+  }
+
+  isEditMode = false;
+  applyEditModeUiState();
+  updateSubmitAvailability();
+}
+
+function setFormInfoState(message = '', messageKey = '', messageVars = {}) {
+  if (familyFormWizardShell) {
+    familyFormWizardShell.classList.add('hidden');
+    familyFormWizardShell.classList.remove('is-revealed');
+  }
+
+  if (formAccessMessage) {
+    const resolvedMessage = messageKey ? t(messageKey, messageVars) : message;
+    formAccessMessage.textContent = resolvedMessage;
+    formAccessMessage.dataset.state = 'info';
     formAccessMessage.dataset.messageKey = messageKey || '';
     formAccessMessage.dataset.messageVars = messageKey ? JSON.stringify(messageVars || {}) : '';
     formAccessMessage.classList.toggle('hidden', !resolvedMessage);
@@ -787,7 +821,10 @@ export async function initFamilyForm() {
 
       await refreshRelationshipAutocompleteOptions();
     } else {
-      setFormAccessState(false, '', 'status.missingFamilyLink');
+      const loadingStartedAt = Date.now();
+      setFormLoadingState('status.loadingFamily');
+      await ensureMinimumLoading(loadingStartedAt);
+      setFormInfoState('', 'status.missingFamilyLink');
     }
   } catch (error) {
     console.warn('Firebase was not initialised on page load.', error);
@@ -1332,7 +1369,7 @@ async function handleSubmit(event) {
 
     if (!currentFamilySlug || !currentFamilyIsVerified) {
       setFormAccessState(false, '', currentFamilySlug ? 'status.invalidFamilyLink' : 'status.missingFamilyLink');
-      setStatus('Choose a valid family before submitting this form.', true);
+      setStatus(currentFamilySlug ? t('status.invalidFamilyLink') : t('status.missingFamilyLink'), true);
       return;
     }
 
