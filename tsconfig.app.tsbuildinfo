@@ -1,1 +1,1 @@
-{"root":["./src/App.tsx","./src/familyForm.ts","./src/familyFormTiers.ts","./src/globalStyles.ts","./src/main.tsx","./src/components/FamilyFormRenderer.tsx"],"errors":true,"version":"5.8.3"}
+{"root":["./src/App.tsx","./src/familyConfig.ts","./src/familyForm.ts","./src/familyFormTiers.ts","./src/globalStyles.ts","./src/main.tsx","./src/components/FamilyFormRenderer.tsx"],"errors":true,"version":"5.8.3"}

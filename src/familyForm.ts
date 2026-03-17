@@ -1,8 +1,9 @@
 // @ts-nocheck
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
+import { DEFAULT_APP_STATE_COLLECTION, DEFAULT_FORM_SUBMISSIONS_COLLECTION, DEFAULT_FAMILY_DISPLAY_NAME, DEFAULT_FAMILY_SLUG, DEFAULT_SAVED_PEOPLE_DOCUMENT, buildFamilyDisplayNameFromSlug, buildFamilyScopedCollectionName, findFamilyOption, sanitizeFamilySlug } from './familyConfig';
 
-const DRAFT_KEY = 'family3_form_draft_v5';
+const DRAFT_KEY_PREFIX = 'family3_form_draft_v7';
 const PHOTO_STORE = new Map();
 const repeatableGroups = ['parents', 'children', 'siblings', 'partners'];
 
@@ -49,6 +50,10 @@ const translations = {
   en: {
     hero: {
       title: 'Add a family member',
+      familyReferenceValid: 'Family reference: {{family}} ✓',
+      familyReferencePending: 'Family reference: {{family}}',
+      familyReferenceMissing: 'This form needs a valid family link before it can open.',
+      editModeMessage: 'Editing {{person}} for {{family}}.',
       copy: 'Every family tree becomes more meaningful with fuller stories, stronger links, and clearer history. Only your full name and birth date are required, but taking a little extra time to complete the rest of this form can help preserve relationships, memories, and details that may matter deeply to your family in the future.',
       firebaseEnabled: 'Firebase submit mode enabled',
       saveTarget: 'New records will be stored in the Firestore collection <strong>Family3_Form_Submissions</strong>.',
@@ -126,6 +131,8 @@ const translations = {
       duplicateName: 'Name',
       firebaseInitFailed: 'Firebase could not be initialised. Check your config values.',
       submittedSuccess: 'Form submitted successfully to Firebase.',
+      restartCountdown: 'Form submitted successfully. This form will restart in {{seconds}} seconds.',
+      restartNow: 'Restarting the form now…',
       restored: 'Saved progress was restored on this device.',
     },
     validation: { required: 'Please fill in this field.' },
@@ -134,6 +141,10 @@ const translations = {
   af: {
     hero: {
       title: 'Voeg ’n familielid by',
+      familyReferenceValid: 'Familieverwysing: {{family}} ✓',
+      familyReferencePending: 'Familieverwysing: {{family}}',
+      familyReferenceMissing: 'Hierdie vorm het ’n geldige familieskakel nodig voordat dit kan oopmaak.',
+      editModeMessage: 'Jy wysig {{person}} vir {{family}}.',
       copy: 'Elke stamboom word meer betekenisvol met voller stories, sterker skakels en duideliker geskiedenis. Net jou volle naam en geboortedatum is verpligtend, maar as jy ’n bietjie ekstra tyd neem om die res van hierdie vorm in te vul, kan dit help om verhoudings, herinneringe en besonderhede te bewaar wat later baie vir jou familie kan beteken.',
       firebaseEnabled: 'Firebase indienmodus is geaktiveer',
       saveTarget: 'Nuwe rekords sal in die Firestore-versameling <strong>Family3_Form_Submissions</strong> gestoor word.',
@@ -207,8 +218,16 @@ const translations = {
       requiredBeforeSubmit: 'Voltooi asseblief die verpligte velde voordat jy indien.', fixHighlighted: 'Maak asseblief die uitgeligde velde reg voordat jy indien.',
       duplicateTitle: 'Hierdie persoon bestaan reeds.', duplicateStopped: '’n Persoon met hierdie volle naam bestaan reeds in Firebase. Indiening is gestop.',
       duplicateName: 'Naam',
+      missingFamilyLink: 'Gebruik asseblief die korrekte familieskakel om hierdie vorm oop te maak en in te vul.',
+      invalidFamilyLink: 'Hierdie vormskakel is nie aktief vir ’n geldige stamboom nie. Gebruik asseblief die korrekte skakel.',
+      invalidEditLink: 'Hierdie wysigskakel is nie meer geldig vir hierdie stamboom nie. Vra asseblief vir ’n nuwe skakel.',
+      loadingFamily: 'Die familievorm word gelaai…',
+      loadingEditLink: 'Hierdie persoon se besonderhede word gelaai…',
+      updatePerson: 'Werk persoon by',
       firebaseInitFailed: 'Firebase kon nie begin word nie. Gaan jou konfigurasiewaardes na.',
       submittedSuccess: 'Vorm is suksesvol na Firebase gestuur.',
+      restartCountdown: 'Vorm is suksesvol ingestuur. Hierdie vorm sal oor {{seconds}} sekondes herbegin.',
+      restartNow: 'Die vorm herbegin nou…',
       restored: 'Gestoorde vordering is op hierdie toestel herstel.',
     },
     validation: { required: 'Vul asseblief hierdie veld in.' },
@@ -222,6 +241,9 @@ let statusMessage = null;
 let submitBtn = null;
 let duplicatePreview = null;
 let saveTargetText = null;
+let familyContextText = null;
+let formAccessMessage = null;
+let familyFormWizardShell = null;
 let draftHintText = null;
 let cropDialog = null;
 let cropCanvas = null;
@@ -250,6 +272,9 @@ function cacheDomRefs() {
   submitBtn = document.getElementById('submitBtn');
   duplicatePreview = document.getElementById('duplicatePreview');
   saveTargetText = document.getElementById('saveTargetText');
+  familyContextText = document.getElementById('familyContextText');
+  formAccessMessage = document.getElementById('formAccessMessage');
+  familyFormWizardShell = document.getElementById('familyFormWizardShell');
   draftHintText = document.getElementById('draftHintText');
   cropDialog = document.getElementById('cropDialog');
   cropCanvas = document.getElementById('cropCanvas');
@@ -276,6 +301,8 @@ function cacheDomRefs() {
     statusMessageFound: Boolean(statusMessage),
     submitBtnFound: Boolean(submitBtn),
     saveTargetTextFound: Boolean(saveTargetText),
+    familySelectorFound: false,
+    familyContextTextFound: Boolean(familyContextText),
     draftHintTextFound: Boolean(draftHintText),
     wizardProgressFound: Boolean(wizardProgress),
     stepPanelCount: stepPanels.length,
@@ -285,7 +312,408 @@ function cacheDomRefs() {
 let currentStep = 0;
 let activeCropSession = null;
 let currentLanguage = 'en';
+let currentFamilySlug = '';
+let currentFamilyDisplayName = '';
+let currentEditPersonId = '';
+let isEditMode = false;
+let currentFamilyIsVerified = false;
+let familyValidationToken = 0;
+let familySavedPeopleCache = new Map();
 let lastAutoSaveStamp = '';
+let restartCountdownTimer = null;
+let restartCountdownValue = 0;
+let isRestartCountdownActive = false;
+const FORM_GATE_MIN_LOADING_MS = 1200;
+
+
+function normalizeComparableValue(value) { return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase(); }
+
+function getRequestedFamilySlugFromLocation() {
+  if (typeof window === 'undefined') return '';
+  try {
+    const url = new URL(window.location.href);
+    return sanitizeFamilySlug(url.searchParams.get('family') || '');
+  } catch (error) {
+    return '';
+  }
+}
+
+function getEditPersonIdFromLocation() {
+  if (typeof window === 'undefined') return '';
+  try {
+    const url = new URL(window.location.href);
+    return String(url.searchParams.get('editPersonId') || '').trim();
+  } catch (error) {
+    return '';
+  }
+}
+
+function getCurrentDraftKey() {
+  const familyKey = sanitizeFamilySlug(currentFamilySlug || DEFAULT_FAMILY_SLUG);
+  const editKey = String(currentEditPersonId || 'new').trim() || 'new';
+  return `${DRAFT_KEY_PREFIX}_${familyKey}_${editKey}`;
+}
+
+function getCurrentFamilyRecord() {
+  return findFamilyOption(currentFamilySlug) || {
+    slug: currentFamilySlug || DEFAULT_FAMILY_SLUG,
+    displayName: buildFamilyDisplayNameFromSlug(currentFamilySlug || DEFAULT_FAMILY_SLUG) || DEFAULT_FAMILY_DISPLAY_NAME,
+  };
+}
+
+function getActiveFormSubmissionsCollectionName() {
+  return buildFamilyScopedCollectionName(DEFAULT_FORM_SUBMISSIONS_COLLECTION, currentFamilySlug || DEFAULT_FAMILY_SLUG);
+}
+
+function getActiveAppStateCollectionName() {
+  return buildFamilyScopedCollectionName(DEFAULT_APP_STATE_COLLECTION, currentFamilySlug || DEFAULT_FAMILY_SLUG);
+}
+
+function updateSubmitAvailability() {
+  if (!submitBtn) return;
+  const shouldDisable = isRestartCountdownActive || !currentFamilyIsVerified;
+  submitBtn.disabled = shouldDisable;
+}
+
+function updateFamilyContextUi() {
+  if (familyContextText) {
+    if (currentFamilyIsVerified && currentFamilyDisplayName) {
+      familyContextText.textContent = t('hero.familyReferenceValid', { family: currentFamilyDisplayName });
+      familyContextText.dataset.state = 'valid';
+    } else if (currentFamilyDisplayName) {
+      familyContextText.textContent = t('hero.familyReferencePending', { family: currentFamilyDisplayName });
+      familyContextText.dataset.state = 'pending';
+    } else {
+      familyContextText.textContent = t('hero.familyReferenceMissing');
+      familyContextText.dataset.state = 'empty';
+    }
+  }
+
+  if (saveTargetText) {
+    saveTargetText.innerHTML = '';
+  }
+
+  updateSubmitAvailability();
+}
+
+function applyFamilySelection(value, { allowFallback = false } = {}) {
+  const trimmedValue = String(value || '').trim();
+  const family = findFamilyOption(trimmedValue) || (allowFallback ? getCurrentFamilyRecord() : null);
+  if (family) {
+    currentFamilySlug = family.slug;
+    currentFamilyDisplayName = family.displayName;
+    currentFamilyIsVerified = false;
+    updateFamilyContextUi();
+    return true;
+  }
+
+  currentFamilySlug = '';
+  currentFamilyDisplayName = '';
+  currentFamilyIsVerified = false;
+  updateFamilyContextUi();
+  return false;
+}
+
+async function verifyCurrentFamilySelection() {
+  const validationToken = ++familyValidationToken;
+  const rawValue = String(currentFamilySlug || '').trim();
+  const wasApplied = applyFamilySelection(rawValue);
+  if (!wasApplied || !currentFamilySlug) {
+    currentFamilyIsVerified = false;
+    updateFamilyContextUi();
+    return false;
+  }
+
+  try {
+    if (!firestoreDb) {
+      firestoreDb = initializeFirebase(FRONTEND_CONFIG.firebase);
+    }
+    const scopedCollection = getActiveAppStateCollectionName();
+    const configSnapshot = await firestoreDb.collection(scopedCollection).doc('familytree.config').get();
+    if (validationToken !== familyValidationToken) return currentFamilyIsVerified;
+    currentFamilyIsVerified = Boolean(configSnapshot.exists);
+    if (currentFamilyIsVerified) {
+      const matched = findFamilyOption(rawValue) || findFamilyOption(currentFamilySlug);
+      if (matched) {
+        currentFamilyDisplayName = matched.displayName;
+      }
+      setStatus('', false, true);
+      familySavedPeopleCache.delete(currentFamilySlug);
+      await refreshRelationshipAutocompleteOptions();
+      persistDraft();
+    } else {
+      setStatus('That family tree could not be found. Choose a valid family before submitting.', true);
+    }
+  } catch (error) {
+    if (validationToken !== familyValidationToken) return false;
+    currentFamilyIsVerified = false;
+    setStatus('The family tree could not be checked right now. Please try again.', true);
+  }
+
+  updateFamilyContextUi();
+  return currentFamilyIsVerified;
+}
+
+function wireFamilySelector() {
+  const requestedFamilySlug = getRequestedFamilySlugFromLocation();
+  const requestedFamily = findFamilyOption(requestedFamilySlug);
+  if (requestedFamily) {
+    applyFamilySelection(requestedFamily.slug, { allowFallback: true });
+    return;
+  }
+
+  currentFamilySlug = '';
+  currentFamilyDisplayName = '';
+  currentFamilyIsVerified = false;
+  updateFamilyContextUi();
+}
+
+function getSavedPersonName(record) {
+  return String(record?.person?.name || record?.name || '').trim();
+}
+
+function getSavedPersonId(record) {
+  return String(record?.firebaseDocumentId || record?.person?.firebaseDocumentId || '').trim();
+}
+
+async function fetchSavedPeopleForCurrentFamily(db) {
+  if (!currentFamilySlug) return [];
+  if (familySavedPeopleCache.has(currentFamilySlug)) {
+    return familySavedPeopleCache.get(currentFamilySlug) || [];
+  }
+
+  const snapshot = await db.collection(getActiveAppStateCollectionName()).doc(DEFAULT_SAVED_PEOPLE_DOCUMENT).get();
+  let records = [];
+  if (snapshot.exists) {
+    const raw = snapshot.data() || {};
+    const data = raw?.data && typeof raw.data === 'object' ? raw.data : raw;
+    const savedPeople = Array.isArray(data?.savedPeople) ? data.savedPeople : [];
+    records = savedPeople.filter((record) => getSavedPersonName(record));
+  }
+
+  familySavedPeopleCache.set(currentFamilySlug, records);
+  return records;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function ensureMinimumLoading(startedAt, minimumMs = FORM_GATE_MIN_LOADING_MS) {
+  const elapsed = Date.now() - startedAt;
+  if (elapsed < minimumMs) {
+    await wait(minimumMs - elapsed);
+  }
+}
+
+function setFormLoadingState(messageKey = 'status.loadingFamily', messageVars = {}) {
+  if (familyFormWizardShell) {
+    familyFormWizardShell.classList.add('hidden');
+    familyFormWizardShell.classList.remove('is-revealed');
+  }
+
+  if (formAccessMessage) {
+    const resolvedMessage = messageKey ? t(messageKey, messageVars) : '';
+    formAccessMessage.textContent = resolvedMessage;
+    formAccessMessage.dataset.state = 'loading';
+    formAccessMessage.dataset.messageKey = messageKey || '';
+    formAccessMessage.dataset.messageVars = messageKey ? JSON.stringify(messageVars || {}) : '';
+    formAccessMessage.classList.toggle('hidden', !resolvedMessage);
+  }
+
+  if (draftHintText) {
+    draftHintText.classList.add('hidden');
+  }
+
+  isEditMode = false;
+  applyEditModeUiState();
+  updateSubmitAvailability();
+}
+
+function setFormAccessState(isAllowed, message = '', messageKey = '', messageVars = {}) {
+  if (familyFormWizardShell) {
+    if (isAllowed) {
+      familyFormWizardShell.classList.remove('hidden');
+      familyFormWizardShell.classList.remove('is-revealed');
+      window.requestAnimationFrame(() => {
+        familyFormWizardShell?.classList.add('is-revealed');
+      });
+    } else {
+      familyFormWizardShell.classList.add('hidden');
+      familyFormWizardShell.classList.remove('is-revealed');
+    }
+  }
+
+  if (formAccessMessage) {
+    const resolvedMessage = messageKey ? t(messageKey, messageVars) : message;
+    formAccessMessage.textContent = resolvedMessage;
+    formAccessMessage.dataset.state = isAllowed ? 'allowed' : 'blocked';
+    formAccessMessage.dataset.messageKey = messageKey || '';
+    formAccessMessage.dataset.messageVars = messageKey ? JSON.stringify(messageVars || {}) : '';
+    formAccessMessage.classList.toggle('hidden', !resolvedMessage);
+  }
+
+  if (draftHintText) {
+    draftHintText.classList.toggle('hidden', !isAllowed);
+  }
+
+  if (!isAllowed) {
+    isEditMode = false;
+    applyEditModeUiState();
+  }
+
+  updateSubmitAvailability();
+}
+
+function getMissingFamilyLinkMessage() {
+  return t('status.missingFamilyLink');
+}
+
+function getInvalidFamilyLinkMessage() {
+  return t('status.invalidFamilyLink');
+}
+
+function getInvalidEditLinkMessage() {
+  return t('status.invalidEditLink');
+}
+
+async function refreshRelationshipAutocompleteOptions() {
+  const datalist = document.getElementById('savedPeopleRelationshipOptions');
+  if (!datalist) return;
+  if (!firestoreDb || !currentFamilySlug) {
+    datalist.innerHTML = '';
+    return;
+  }
+  const records = await fetchSavedPeopleForCurrentFamily(firestoreDb);
+  const names = [...new Set(records.map(getSavedPersonName).filter(Boolean).sort((a, b) => a.localeCompare(b)))];
+  datalist.innerHTML = names.map((name) => `<option value="${escapeHtml(name)}"></option>`).join('');
+}
+
+async function findSavedPersonByName(db, fullName) {
+  const normalizedName = normalizeComparableValue(fullName);
+  if (!normalizedName) return null;
+  const records = await fetchSavedPeopleForCurrentFamily(db);
+  return records.find((record) => normalizeComparableValue(getSavedPersonName(record)) === normalizedName) || null;
+}
+
+function setPhotoStoreValue(photoKey, photoUrl) {
+  if (!photoKey) return;
+  const nextUrl = String(photoUrl || '').trim();
+  if (!nextUrl) {
+    PHOTO_STORE.delete(photoKey);
+    return;
+  }
+  PHOTO_STORE.set(photoKey, { dataUrl: '', filename: '', url: nextUrl, deleteUrl: '' });
+}
+
+function populateRelationshipCardFromSavedPerson(card, record) {
+  if (!card || !record) return;
+  const person = record.person || {};
+  const nameInput = card.querySelector('input[name$="_name"]');
+  const birthInput = card.querySelector('input[name$="_birthDate"]');
+  if (nameInput) nameInput.value = person.name || '';
+  if (birthInput && person.birthDate) birthInput.value = person.birthDate;
+  const photoWidget = card.querySelector('.photo-widget');
+  const photoKey = photoWidget?.dataset?.photoField || '';
+  setPhotoStoreValue(photoKey, person.photo || '');
+  if (photoWidget) buildPhotoWidget(photoWidget);
+}
+
+async function tryAutofillRelationshipCard(card, lookupName) {
+  if (!firestoreDb || !currentFamilySlug) return;
+  const record = await findSavedPersonByName(firestoreDb, lookupName);
+  if (!record) return;
+  populateRelationshipCardFromSavedPerson(card, record);
+  persistDraft();
+}
+
+function wireRelationshipCardAutocomplete(card) {
+  const nameInput = card?.querySelector('input[name$="_name"]');
+  if (!nameInput || nameInput.dataset.autofillReady === 'true') return;
+  nameInput.dataset.autofillReady = 'true';
+  nameInput.setAttribute('list', 'savedPeopleRelationshipOptions');
+  const handler = () => { void tryAutofillRelationshipCard(card, nameInput.value); };
+  nameInput.addEventListener('change', handler);
+  nameInput.addEventListener('blur', handler);
+}
+
+function clearRepeatableGroups() {
+  document.querySelectorAll('.repeatable-list').forEach((list) => { list.innerHTML = ''; });
+}
+
+function applySubmissionRecordToForm(record) {
+  if (!form || !record?.person) return;
+  const person = record.person || {};
+  form.reset();
+  PHOTO_STORE.clear();
+  clearRepeatableGroups();
+
+  const fieldMap = {
+    fullName: person.name || '',
+    birthDate: person.birthDate || '',
+    nickname: person.nickname || '',
+    prefix: person.prefix || '',
+    maidenName: person.maidenName || '',
+    gender: person.gender || '',
+    birthPlace: person.birthPlace || '',
+    currentLocation: person.currentLocation || '',
+    heritage: person.heritage || '',
+    stillAlive: person.isAlive || '',
+    deathDate: person.deathDate || '',
+    deathPlace: person.deathPlace || '',
+    occupation: person.occupation || '',
+    education: person.education || '',
+    maritalStatus: person.maritalStatus || '',
+    languages: person.languages || '',
+    biography: person.biography || '',
+    achievements: person.achievements || '',
+    interests: person.interests || '',
+    personality: person.personality || '',
+    familyNotes: person.familyNotes || '',
+  };
+
+  Object.entries(fieldMap).forEach(([name, value]) => {
+    const field = form.elements.namedItem(name);
+    if (field && 'value' in field) field.value = value;
+  });
+
+  if (person.photo) {
+    setPhotoStoreValue('person.photo', person.photo);
+  }
+
+  repeatableGroups.forEach((groupName) => {
+    const entries = Array.isArray(person.relationships?.[groupName]) ? person.relationships[groupName] : [];
+    entries.forEach((entry) => addEntry(groupName, entry));
+  });
+
+  buildAllPhotoWidgets();
+  buildCustomSelects();
+  updateDeathFields();
+  renderReviewSummary();
+}
+
+function applyEditModeUiState() {
+  if (!submitBtn) return;
+  submitBtn.textContent = isEditMode ? t('status.updatePerson') : t('buttons.submit');
+}
+
+async function loadEditModePerson() {
+  if (!firestoreDb || !currentEditPersonId || !currentFamilySlug) return false;
+  const records = await fetchSavedPeopleForCurrentFamily(firestoreDb);
+  const matched = records.find((record) => getSavedPersonId(record) === currentEditPersonId);
+  if (!matched) {
+    setFormAccessState(false, '', 'status.invalidEditLink');
+    setStatus('', false, true);
+    return false;
+  }
+  isEditMode = true;
+  setFormAccessState(true, '', 'hero.editModeMessage', { person: getSavedPersonName(matched), family: currentFamilyDisplayName });
+  applySubmissionRecordToForm(matched);
+  applyEditModeUiState();
+  updateSubmitAvailability();
+  setStatus(t('hero.editModeMessage', { person: getSavedPersonName(matched), family: currentFamilyDisplayName }), false, true);
+  return true;
+}
 
 const FRONTEND_CONFIG = {
   firebase: {
@@ -312,13 +740,16 @@ function logSubmitDebug(stage, payload = null) {
   console.log(`[Family3 Submit Debug][${time}] ${stage}`, payload);
 }
 
-export function initFamilyForm() {
+export async function initFamilyForm() {
   cacheDomRefs();
   if (!form || !wizardProgress) {
     console.warn('Family form root nodes were not found during init.');
     return;
   }
-  restoreDraft();
+
+  currentEditPersonId = getEditPersonIdFromLocation();
+  wireFamilySelector();
+  const restoredDraft = currentFamilySlug && !currentEditPersonId ? restoreDraft() : false;
   buildWizardProgress();
   buildAllPhotoWidgets();
   initRepeatableGroups();
@@ -328,10 +759,36 @@ export function initFamilyForm() {
   buildCustomSelects();
   updateDeathFields();
   applyTranslations();
+  updateFamilyContextUi();
   updateWizardUI();
+  applyEditModeUiState();
 
   try {
     firestoreDb = initializeFirebase(FRONTEND_CONFIG.firebase);
+    if (currentFamilySlug) {
+      const loadingStartedAt = Date.now();
+      setFormLoadingState('status.loadingFamily');
+      const familyIsValid = await verifyCurrentFamilySelection();
+      if (!familyIsValid) {
+        await ensureMinimumLoading(loadingStartedAt);
+        setFormAccessState(false, '', 'status.invalidFamilyLink');
+        return;
+      }
+
+      if (currentEditPersonId) {
+        setFormLoadingState('status.loadingEditLink');
+        const editLoaded = await loadEditModePerson();
+        await ensureMinimumLoading(loadingStartedAt);
+        if (!editLoaded) return;
+      } else {
+        await ensureMinimumLoading(loadingStartedAt);
+        setFormAccessState(true, '');
+      }
+
+      await refreshRelationshipAutocompleteOptions();
+    } else {
+      setFormAccessState(false, '', 'status.missingFamilyLink');
+    }
   } catch (error) {
     console.warn('Firebase was not initialised on page load.', error);
     setStatus(t('status.firebaseInitFailed'), true);
@@ -370,11 +827,28 @@ function applyTranslations() {
   buildWizardProgress();
   updateWizardUI();
   updateDraftHintText();
+  updateFamilyContextUi();
+  if (formAccessMessage?.dataset?.messageKey) {
+    let vars = {};
+    try {
+      vars = formAccessMessage.dataset.messageVars ? JSON.parse(formAccessMessage.dataset.messageVars) : {};
+    } catch (error) {
+      vars = {};
+    }
+    formAccessMessage.textContent = t(formAccessMessage.dataset.messageKey, vars);
+    formAccessMessage.classList.toggle('hidden', !formAccessMessage.textContent);
+  }
+  applyEditModeUiState();
+  updateSubmitAvailability();
   document.querySelectorAll('.photo-widget').forEach(buildPhotoWidget);
   document.querySelectorAll('.repeatable-list').forEach((list) => {
-    list.querySelectorAll('.entry-card').forEach(refreshEntryCardText);
+    list.querySelectorAll('.entry-card').forEach((card) => {
+      refreshEntryCardText(card);
+      wireRelationshipCardAutocomplete(card);
+    });
   });
   buildCustomSelects();
+  void refreshRelationshipAutocompleteOptions();
   refreshReviewLabels();
   if (duplicatePreview && !duplicatePreview.classList.contains('hidden') && duplicatePreview.dataset.name && duplicatePreview.dataset.birthDate) {
     renderDuplicatePreview({ fullName: duplicatePreview.dataset.name, birthDate: duplicatePreview.dataset.birthDate });
@@ -411,16 +885,20 @@ function updateWizardUI() {
   [...wizardProgress.children].forEach((button, index) => {
     button.classList.toggle('is-active', index === currentStep);
     button.classList.toggle('is-complete', index < currentStep);
+    button.disabled = isRestartCountdownActive;
   });
   wizardStepCount.textContent = t('steps.counter', { current: currentStep + 1, total: stepPanels.length });
-  prevStepBtn.disabled = currentStep === 0;
+  prevStepBtn.disabled = isRestartCountdownActive || currentStep === 0;
   const isLast = currentStep === stepPanels.length - 1;
   nextStepBtn.classList.toggle('hidden', isLast);
   submitBtn.classList.toggle('hidden', !isLast);
+  nextStepBtn.disabled = isRestartCountdownActive;
+  submitBtn.disabled = isRestartCountdownActive;
   if (isLast) renderReviewSummary();
 }
 
 function goToStep(targetStep, allowJump = false) {
+  if (isRestartCountdownActive) return;
   if (targetStep < 0 || targetStep >= stepPanels.length) return;
   if (targetStep > currentStep && !validateCurrentStep()) return;
   if (!allowJump && Math.abs(targetStep - currentStep) > 1) return;
@@ -428,9 +906,9 @@ function goToStep(targetStep, allowJump = false) {
   persistDraft();
   updateWizardUI();
   document.getElementById('wizardProgress')?.scrollIntoView({
-  behavior: 'smooth',
-  block: 'start',
-});
+    behavior: 'smooth',
+    block: 'start',
+  });
 }
 
 function validateCurrentStep() {
@@ -455,6 +933,56 @@ function renderReviewSummary() {
   reviewBirthPlace.textContent = form.elements.namedItem('birthPlace')?.value?.trim() || '—';
   reviewCurrentLocation.textContent = form.elements.namedItem('currentLocation')?.value?.trim() || '—';
   reviewOccupation.textContent = form.elements.namedItem('occupation')?.value?.trim() || '—';
+}
+
+function clearRestartCountdown() {
+  if (restartCountdownTimer) {
+    window.clearInterval(restartCountdownTimer);
+    restartCountdownTimer = null;
+  }
+  restartCountdownValue = 0;
+  isRestartCountdownActive = false;
+}
+
+function resetFormAfterSubmit() {
+  form.reset();
+  PHOTO_STORE.clear();
+  document.querySelectorAll('.repeatable-list').forEach((list) => { list.innerHTML = ''; });
+  buildAllPhotoWidgets();
+  buildCustomSelects();
+  currentStep = 0;
+  updateDeathFields();
+  updateWizardUI();
+  setStatus('');
+  document.getElementById('wizardProgress')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  });
+  logSubmitDebug('Form reset completed');
+}
+
+function startSubmitRestartCountdown(seconds = 5) {
+  clearRestartCountdown();
+  isRestartCountdownActive = true;
+  restartCountdownValue = seconds;
+  setStatus(t('status.restartCountdown', { seconds: restartCountdownValue }), false, true);
+  updateWizardUI();
+  logSubmitDebug('Submit restart countdown started', { seconds: restartCountdownValue });
+
+  restartCountdownTimer = window.setInterval(() => {
+    restartCountdownValue -= 1;
+
+    if (restartCountdownValue <= 0) {
+      clearRestartCountdown();
+      setStatus(t('status.restartNow'), false, true);
+      logSubmitDebug('Submit restart countdown completed');
+      resetFormAfterSubmit();
+      return;
+    }
+
+    setStatus(t('status.restartCountdown', { seconds: restartCountdownValue }), false, true);
+    logSubmitDebug('Submit restart countdown tick', { seconds: restartCountdownValue });
+  }, 1000);
 }
 
 function refreshReviewLabels() {
@@ -543,7 +1071,7 @@ function buildPhotoWidget(widget) {
 
   const existing = PHOTO_STORE.get(photoKey);
   if (existing) {
-    preview.src = existing.dataUrl;
+    preview.src = existing.url || existing.dataUrl || '';
     preview.hidden = false;
     meta.textContent = existing.url ? t('help.photoReady') : t('help.photoReadyPending');
   }
@@ -656,7 +1184,7 @@ function addEntry(groupName, values = {}) {
       <label class="field relationship-name-field">
         <span><span class="entry-name-label"></span> <em class="entry-optional"></em></span>
         <small class="field-help entry-name-help"></small>
-        <input type="text" name="${groupName}_${index}_name" value="${escapeHtml(values.name || '')}" />
+        <input type="text" name="${groupName}_${index}_name" list="savedPeopleRelationshipOptions" value="${escapeHtml(values.name || '')}" />
       </label>
       <label class="field relationship-type-field">
         <span><span class="entry-type-label"></span> <em class="entry-optional"></em></span>
@@ -684,8 +1212,13 @@ function addEntry(groupName, values = {}) {
 
   list.appendChild(card);
   refreshEntryCardText(card);
-  buildPhotoWidget(card.querySelector('.photo-widget'));
+  const photoWidget = card.querySelector('.photo-widget');
+  if (values.photo) {
+    setPhotoStoreValue(`relationships.${groupName}.${index}.photo`, values.photo);
+  }
+  buildPhotoWidget(photoWidget);
   buildCustomSelects(card);
+  wireRelationshipCardAutocomplete(card);
 }
 
 function refreshEntryCardText(card) {
@@ -731,6 +1264,7 @@ function normalizeEntryIndices(groupName) {
     }
     refreshEntryCardText(card);
     buildCustomSelects(card);
+    wireRelationshipCardAutocomplete(card);
   });
 }
 
@@ -796,27 +1330,36 @@ async function handleSubmit(event) {
       firestoreDb = initializeFirebase(FRONTEND_CONFIG.firebase);
     }
 
+    if (!currentFamilySlug || !currentFamilyIsVerified) {
+      setFormAccessState(false, '', currentFamilySlug ? 'status.invalidFamilyLink' : 'status.missingFamilyLink');
+      setStatus('Choose a valid family before submitting this form.', true);
+      return;
+    }
+
     const submission = buildSubmissionObject();
     logSubmitDebug('Submission object built', {
       id: submission.id,
       personName: submission.person.name,
       birthDate: submission.person.birthDate,
       hasPhoto: Boolean(submission.person.photo),
+      familySlug: currentFamilySlug,
     });
 
-    const duplicateMatch = await findExistingPersonByFullName(firestoreDb, submission.person.name);
-    logSubmitDebug('Duplicate check completed', {
-      duplicateFound: Boolean(duplicateMatch),
-      duplicateDocumentId: duplicateMatch?.documentId || null,
-    });
-
-    if (duplicateMatch) {
-      renderDuplicatePreview(duplicateMatch);
-      setStatus(t('status.duplicateStopped'), true);
-      logSubmitDebug('Submit stopped: duplicate record found', {
-        duplicateDocumentId: duplicateMatch.documentId,
+    if (!isEditMode) {
+      const duplicateMatch = await findExistingPersonByFullName(firestoreDb, submission.person.name);
+      logSubmitDebug('Duplicate check completed', {
+        duplicateFound: Boolean(duplicateMatch),
+        duplicateDocumentId: duplicateMatch?.documentId || null,
       });
-      return;
+
+      if (duplicateMatch) {
+        renderDuplicatePreview(duplicateMatch);
+        setStatus(t('status.duplicateStopped'), true);
+        logSubmitDebug('Submit stopped: duplicate record found', {
+          duplicateDocumentId: duplicateMatch.documentId,
+        });
+        return;
+      }
     }
 
     logSubmitDebug('Uploading pending photos');
@@ -824,6 +1367,19 @@ async function handleSubmit(event) {
     logSubmitDebug('Pending photo upload finished', {
       hasPersonPhoto: Boolean(submission.person.photo),
     });
+
+    if (isEditMode && currentEditPersonId) {
+      await updateSavedPersonInFirebase(firestoreDb, currentEditPersonId, submission);
+      logSubmitDebug('Saved person updated in Firebase app state', {
+        editPersonId: currentEditPersonId,
+        familySlug: currentFamilySlug,
+      });
+      setStatus(`Saved person updated for ${currentFamilyDisplayName}.`, false, true);
+      localStorage.removeItem(getCurrentDraftKey());
+      lastAutoSaveStamp = '';
+      if (draftHintText) draftHintText.textContent = t('hero.autoSave');
+      return;
+    }
 
     const savedDocumentId = await saveSubmissionToFirebase(firestoreDb, submission);
     logSubmitDebug('Submission saved to Firebase', {
@@ -834,17 +1390,13 @@ async function handleSubmit(event) {
     await logSavedSubmissionFromFirebase(firestoreDb, savedDocumentId);
     logSubmitDebug('Saved submission re-read from Firebase', { savedDocumentId });
 
-    localStorage.removeItem(DRAFT_KEY);
+    localStorage.removeItem(getCurrentDraftKey());
     lastAutoSaveStamp = '';
-    setStatus(t('status.submittedSuccess'), false, true);
-    logSubmitDebug('Draft cleared and success status set');
+    currentStep = stepPanels.length - 1;
+    updateWizardUI();
+    startSubmitRestartCountdown(5);
+    logSubmitDebug('Draft cleared and success countdown started');
 
-    if (saveTargetText) {
-      saveTargetText.innerHTML = t('hero.saveTargetLatest');
-      logSubmitDebug('Updated saveTargetText copy');
-    } else {
-      logSubmitDebug('saveTargetText element missing; skipping innerHTML update');
-    }
 
     if (draftHintText) {
       draftHintText.textContent = t('hero.autoSave');
@@ -853,15 +1405,6 @@ async function handleSubmit(event) {
       logSubmitDebug('draftHintText element missing; skipping textContent update');
     }
 
-    form.reset();
-    PHOTO_STORE.clear();
-    document.querySelectorAll('.repeatable-list').forEach((list) => { list.innerHTML = ''; });
-    buildAllPhotoWidgets();
-    buildCustomSelects();
-    currentStep = 0;
-    updateDeathFields();
-    updateWizardUI();
-    logSubmitDebug('Form reset completed');
   } catch (error) {
     console.error(error);
     logSubmitDebug('Submit failed with error', {
@@ -870,8 +1413,11 @@ async function handleSubmit(event) {
     });
     setStatus(error.message || t('status.fixHighlighted'), true);
   } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = t('buttons.submit');
+    if (!isRestartCountdownActive) {
+      submitBtn.disabled = false;
+    }
+    submitBtn.textContent = isEditMode ? t('status.updatePerson') : t('buttons.submit');
+    updateWizardUI();
     logSubmitDebug('Submit button unlocked');
   }
 }
@@ -881,6 +1427,8 @@ function buildSubmissionObject() {
   const now = new Date().toISOString();
   return {
     id: `sub_${Date.now()}`,
+    familySlug: currentFamilySlug || DEFAULT_FAMILY_SLUG,
+    familyDisplayName: currentFamilyDisplayName || DEFAULT_FAMILY_DISPLAY_NAME,
     person: {
       name: getValue(data, 'fullName'),
       birthDate: getValue(data, 'birthDate'),
@@ -904,7 +1452,7 @@ function buildSubmissionObject() {
       interests: getValue(data, 'interests'),
       personality: getValue(data, 'personality'),
       familyNotes: getValue(data, 'familyNotes'),
-      submissionMeta: { submittedAt: now, status: 'pending' },
+      submissionMeta: { submittedAt: now, updatedAt: now, status: isEditMode ? 'updated' : 'pending' },
       relationships: Object.fromEntries(repeatableGroups.map((groupName) => [groupName, collectRelationshipEntries(data, groupName)])),
       node: {
         title: '',
@@ -986,7 +1534,7 @@ function initializeFirebase(firebaseConfig) {
 }
 
 async function saveSubmissionToFirebase(db, submission) {
-  const collectionRef = db.collection('Family3_Form_Submissions');
+  const collectionRef = db.collection(getActiveFormSubmissionsCollectionName());
   const docRef = await collectionRef.add(submission);
   return docRef.id;
 }
@@ -994,7 +1542,7 @@ async function saveSubmissionToFirebase(db, submission) {
 async function findExistingPersonByFullName(db, fullName) {
   const normalizedName = normalizeComparableValue(fullName);
   if (!normalizedName) return null;
-  const snapshot = await db.collection('Family3_Form_Submissions').get();
+  const snapshot = await db.collection(getActiveFormSubmissionsCollectionName()).get();
   for (const doc of snapshot.docs) {
     const record = doc.data() || {};
     const recordName = normalizeComparableValue(record?.person?.name || '');
@@ -1005,7 +1553,73 @@ async function findExistingPersonByFullName(db, fullName) {
   return null;
 }
 
-function normalizeComparableValue(value) { return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase(); }
+async function updateSavedPersonInFirebase(db, recordId, submission) {
+  const collectionRef = db.collection(getActiveAppStateCollectionName());
+  const docRef = collectionRef.doc(DEFAULT_SAVED_PEOPLE_DOCUMENT);
+  const snapshot = await docRef.get();
+  if (!snapshot.exists) {
+    throw new Error('The saved people library for this family could not be found.');
+  }
+
+  const raw = snapshot.data() || {};
+  const envelopeData = raw?.data && typeof raw.data === 'object' ? raw.data : raw;
+  const savedPeople = Array.isArray(envelopeData?.savedPeople) ? envelopeData.savedPeople : [];
+  const targetIndex = savedPeople.findIndex((record) => getSavedPersonId(record) === recordId);
+  if (targetIndex < 0) {
+    throw new Error('The saved person referenced by this edit link could not be found.');
+  }
+
+  const existingRecord = savedPeople[targetIndex] || {};
+  const existingPerson = existingRecord.person || {};
+  const nextNow = new Date().toISOString();
+  const nextRecord = {
+    ...existingRecord,
+    familySlug: currentFamilySlug || existingRecord.familySlug || '',
+    familyDisplayName: currentFamilyDisplayName || existingRecord.familyDisplayName || '',
+    firebaseDocumentId: recordId,
+    person: {
+      ...existingPerson,
+      ...submission.person,
+      submissionMeta: {
+        ...(existingPerson.submissionMeta || {}),
+        ...(submission.person.submissionMeta || {}),
+        submittedAt: existingPerson.submissionMeta?.submittedAt || submission.person.submissionMeta?.submittedAt || nextNow,
+        updatedAt: nextNow,
+        status: 'updated',
+      },
+      node: existingPerson.node || submission.person.node || {
+        title: '',
+        coverImage: '',
+        imageCaption: '',
+        eventDate: '',
+        location: '',
+        notes: '',
+      },
+      relationships: submission.person.relationships || existingPerson.relationships || {},
+    },
+  };
+
+  const nextSavedPeople = [...savedPeople];
+  nextSavedPeople[targetIndex] = nextRecord;
+  familySavedPeopleCache.set(currentFamilySlug, nextSavedPeople);
+
+  const nextPayload = raw?.data && typeof raw.data === 'object'
+    ? {
+        ...raw,
+        data: {
+          ...envelopeData,
+          savedPeople: nextSavedPeople,
+        },
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }
+    : {
+        ...envelopeData,
+        savedPeople: nextSavedPeople,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      };
+
+  await docRef.set(nextPayload, { merge: false });
+}
 
 function renderDuplicatePreview(match) {
   duplicatePreview.dataset.name = match.fullName || '';
@@ -1023,7 +1637,7 @@ function clearDuplicatePreview() {
 }
 
 async function logSavedSubmissionFromFirebase(db, documentId) {
-  const docSnapshot = await db.collection('Family3_Form_Submissions').doc(documentId).get();
+  const docSnapshot = await db.collection(getActiveFormSubmissionsCollectionName()).doc(documentId).get();
   if (!docSnapshot.exists) {
     console.warn('The saved Firebase record could not be loaded again for console logging.', documentId);
     return;
@@ -1036,13 +1650,16 @@ function persistDraft() {
   lastAutoSaveStamp = now.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
   const draft = {
     uiLanguage: currentLanguage,
+    familySlug: currentFamilySlug,
+    familyDisplayName: currentFamilyDisplayName,
+    editPersonId: currentEditPersonId,
     formValues: Object.fromEntries(new FormData(form).entries()),
     photos: [...PHOTO_STORE.entries()],
     repeatCounts: Object.fromEntries(repeatableGroups.map((group) => [group, document.querySelectorAll(`.entry-card[data-group="${group}"]`).length])),
     currentStep,
     savedAt: lastAutoSaveStamp,
   };
-  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  localStorage.setItem(getCurrentDraftKey(), JSON.stringify(draft));
   updateDraftHintText();
 }
 
@@ -1056,13 +1673,16 @@ function updateDraftHintText() {
 }
 
 function getDraft() {
-  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch { return null; }
+  try { return JSON.parse(localStorage.getItem(getCurrentDraftKey()) || 'null'); } catch { return null; }
 }
 
 function restoreDraft() {
   const draft = getDraft();
-  if (!draft) return;
+  if (!draft) return false;
   currentLanguage = draft.uiLanguage || 'en';
+  if (!getRequestedFamilySlugFromLocation() && draft.familySlug) {
+    applyFamilySelection(draft.familySlug, { syncInput: true, allowFallback: true });
+  }
   Object.entries(draft.formValues || {}).forEach(([name, value]) => {
     const field = form.elements.namedItem(name);
     if (field && 'value' in field) field.value = value;
@@ -1072,6 +1692,7 @@ function restoreDraft() {
   currentStep = Math.min(Number(draft.currentStep || 0), stepPanels.length - 1);
   lastAutoSaveStamp = draft.savedAt || '';
   setStatus(t('status.restored'), false, true);
+  return true;
 }
 
 function collectDraftGroupValues(groupName, values, count) {

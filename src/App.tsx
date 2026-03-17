@@ -89,7 +89,7 @@ function App() {
   useEffect(() => {
     if (didInitRef.current) return;
     didInitRef.current = true;
-    initFamilyForm();
+    void initFamilyForm();
   }, []);
 
 

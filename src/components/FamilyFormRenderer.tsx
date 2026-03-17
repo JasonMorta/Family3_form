@@ -231,16 +231,17 @@ export function FamilyFormRenderer() {
           <p className="hero-copy" data-i18n="hero.copy">
             Every family tree becomes more meaningful with fuller stories, stronger links, and clearer history. Only your full name and birth date are required, but taking a little extra time to complete the rest of this form can help preserve relationships, memories, and details that may matter deeply to your family in the future.
           </p>
-          <div className="hero-actions d-flex flex-wrap align-items-center gap-3">
-            {/* <div className="firebase-pill badge px-3 py-2 fs-6" data-i18n="hero.firebaseEnabled" id="firebaseStatusPill">Firebase submit mode enabled</div>
-            <p className="save-target" data-i18n-html="hero.saveTarget" id="saveTargetText">New records will be stored in the Firestore collection <strong>Three Family List</strong>.</p>
-            <p className="draft-hint" data-i18n="hero.autoSave" id="draftHintText">Your progress saves automatically on this device while you type.</p> */}
+          <div className="hero-actions">
+            <p className="save-target" id="familyContextText"></p>
+            <p className="draft-hint" data-i18n="hero.autoSave" id="draftHintText">Your progress saves automatically on this device while you type.</p>
+            <div className="access-message hidden" aria-live="polite" id="formAccessMessage"></div>
           </div>
         </header>
 
         <main>
           <form id="familyIntakeForm" noValidate>
-            <section className="wizard-shell">
+            <datalist id="savedPeopleRelationshipOptions"></datalist>
+            <section className="wizard-shell" id="familyFormWizardShell">
               <div className="wizard-progress" id="wizardProgress"></div>
               <div className="wizard-stage">
                 {familyFormTiers.steps.map((step, index) => (
