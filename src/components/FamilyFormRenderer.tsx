@@ -122,6 +122,33 @@ function StepContent({ step }: { step: StepDef }) {
     );
   }
 
+
+  if (content.type === 'fieldsWithRepeatableSection') {
+    return (
+      <>
+        <div className={content.gridClassName ?? 'grid'}>
+          {content.fields.map((field) => (
+            <FormField key={`${step.step}-${field.name ?? field.id ?? field.labelKey}`} field={field} />
+          ))}
+        </div>
+        <div className="step-block top-space partner-section hidden" id="partnerSection">
+          <div className="step-group-card">
+            <div className="step-group-header partner-section-header">
+              <div>
+                <h3 data-i18n={content.repeatableGroup.titleKey}>{content.repeatableGroup.titleKey}</h3>
+                <p className="field-help" data-i18n={content.repeatableGroup.helpKey ?? 'help.relationships'}>{content.repeatableGroup.helpKey ?? 'help.relationships'}</p>
+              </div>
+              <button className="secondary-btn btn add-entry-btn" data-add-list={content.repeatableGroup.name} data-i18n={content.repeatableGroup.addButtonKey} type="button">
+                {content.repeatableGroup.addButtonKey}
+              </button>
+            </div>
+            <div className="repeatable-list" data-list={content.repeatableGroup.name}></div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (content.type === 'repeatable') {
     return (
       <div className="stacked-step-groups">
@@ -151,13 +178,7 @@ function StepContent({ step }: { step: StepDef }) {
 
   return (
     <>
-      <div className="review-box">
-        <p><strong data-i18n="review.name">Name:</strong> <span id="reviewName">—</span></p>
-        <p><strong data-i18n="review.birthDate">Birth date:</strong> <span id="reviewBirthDate">—</span></p>
-        <p><strong data-i18n="review.birthPlace">Birth place:</strong> <span id="reviewBirthPlace">—</span></p>
-        <p><strong data-i18n="review.currentLocation">Current location:</strong> <span id="reviewCurrentLocation">—</span></p>
-        <p><strong data-i18n="review.occupation">Occupation:</strong> <span id="reviewOccupation">—</span></p>
-      </div>
+      <div className="review-box review-sections" id="reviewSummary"></div>
       <div aria-live="polite" className="duplicate-preview hidden" id="duplicatePreview"></div>
       <p aria-live="polite" className="status-message" id="statusMessage"></p>
     </>
@@ -182,15 +203,15 @@ function CropDialog() {
           <div className="crop-controls">
             <label className="field">
               <span data-i18n="crop.zoom">Zoom</span>
-              <input id="cropZoom" max="3" min="1" step="0.01" type="range" defaultValue="1" />
+              <input id="cropZoom" max="10" min="1" step="0.01" type="range" defaultValue="1" />
             </label>
             <label className="field">
               <span data-i18n="crop.horizontal">Move left and right</span>
-              <input id="cropX" max="160" min="-160" step="1" type="range" defaultValue="0" />
+              <input id="cropX" max="500" min="-500" step="1" type="range" defaultValue="0" />
             </label>
             <label className="field">
               <span data-i18n="crop.vertical">Move up and down</span>
-              <input id="cropY" max="160" min="-160" step="1" type="range" defaultValue="0" />
+              <input id="cropY" max="500" min="-500" step="1" type="range" defaultValue="0" />
             </label>
             <div className="crop-preview-block">
               <span data-i18n="crop.preview">Preview</span>
@@ -240,25 +261,31 @@ export function FamilyFormRenderer() {
 
         <main>
           <form id="familyIntakeForm" noValidate>
-            <datalist id="savedPeopleRelationshipOptions"></datalist>
             <section className="wizard-shell" id="familyFormWizardShell">
-              <div className="wizard-progress" id="wizardProgress"></div>
-              <div className="wizard-stage">
-                {familyFormTiers.steps.map((step, index) => (
-                  <section key={step.step} className={`step-panel${index === 0 ? ' is-active' : ''}`} data-step={step.step}>
-                    <StepHeader step={step} />
-                    <StepContent step={step} />
-                  </section>
-                ))}
-              </div>
-              <footer className="wizard-footer">
-                <button className="secondary-btn btn" data-i18n="buttons.back" id="prevStepBtn" type="button">Back</button>
-                <div className="wizard-footer-center">
-                  <span className="wizard-step-count" id="wizardStepCount">Step 1 of 8</span>
+              <aside aria-label="Form sections" className="wizard-sidebar is-expanded" id="wizardSidebar">
+                <div className="wizard-progress" id="wizardProgress"></div>
+              </aside>
+              <div className="wizard-main">
+                <div className="wizard-mobile-progress">
+                  <span className="wizard-mobile-count" id="wizardMobileStepCount">Step 1 of 9</span>
                 </div>
-                <button className="primary-btn btn" data-i18n="buttons.next" id="nextStepBtn" type="button">Next</button>
-                <button className="primary-btn btn hidden" data-i18n="buttons.submit" id="submitBtn" type="submit">Submit form</button>
-              </footer>
+                <div className="wizard-stage">
+                  {familyFormTiers.steps.map((step, index) => (
+                    <section key={step.step} className={`step-panel${index === 0 ? ' is-active' : ''}`} data-step={step.step}>
+                      <StepHeader step={step} />
+                      <StepContent step={step} />
+                    </section>
+                  ))}
+                </div>
+                <footer className="wizard-footer">
+                  <button className="secondary-btn btn" data-i18n="buttons.back" id="prevStepBtn" type="button">Back</button>
+                  <div className="wizard-footer-center">
+                    <span className="wizard-step-count" id="wizardStepCount">Step 1 of 9</span>
+                  </div>
+                  <button className="primary-btn btn" data-i18n="buttons.next" id="nextStepBtn" type="button">Next</button>
+                  <button className="primary-btn btn hidden" data-i18n="buttons.submit" id="submitBtn" type="submit">Submit form</button>
+                </footer>
+              </div>
             </section>
           </form>
         </main>

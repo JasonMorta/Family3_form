@@ -39,9 +39,10 @@ const RELATIONSHIP_GROUPS = {
     singular: 'partner',
     singularLabelKey: 'entryLabels.partner',
     includeBirthDate: false,
-    optionValues: ['Spouse', 'Partner', 'Fiancé / fiancée', 'Former spouse', 'Former partner', 'Other'],
-    optionKeys: ['options.partner.spouse', 'options.partner.partner', 'options.partner.fiance', 'options.partner.formerSpouse', 'options.partner.formerPartner', 'options.other'],
-    labelKey: 'relationship.partnerType',
+    includeType: true,
+    optionValues: ['Wife', 'Husband', 'Ex-wife', 'Ex-husband', 'Girlfriend', 'Boyfriend', 'Fiancé / Fiancée', 'Partner', 'Other'],
+    optionKeys: ['options.partner.wife', 'options.partner.husband', 'options.partner.exWife', 'options.partner.exHusband', 'options.partner.girlfriend', 'options.partner.boyfriend', 'options.partner.fiance', 'options.partner.partner', 'options.other'],
+    labelKey: 'fields.partnerType',
     addButtonKey: 'buttons.addPartner',
   },
 };
@@ -68,7 +69,7 @@ const translations = {
     buttons: {
       back: 'Back', next: 'Next', submit: 'Submit form', submitting: 'Submitting...', cancel: 'Cancel', usePhoto: 'Use this photo',
       choosePhoto: 'Choose photo', replacePhoto: 'Replace photo', removePhoto: 'Remove photo',
-      addParent: 'Add parent', addChild: 'Add child', addSibling: 'Add sibling', addPartner: 'Add partner', remove: 'Remove',
+      addParent: 'Add parent', addChild: 'Add child', addSibling: 'Add sibling', addPartner: 'Add partner', addRelationship: 'Add relationship', remove: 'Remove',
     },
     steps: {
       step1: { kicker: 'Step 1', title: 'Core identity', desc: 'Capture the essentials for the family member being added. Only full name and birth date are required.' },
@@ -76,41 +77,45 @@ const translations = {
       step3: { kicker: 'Step 3', title: 'Life details', desc: 'Add useful timeline and location details that help place this person in the family story.' },
       step4: { kicker: 'Step 4', title: 'Life story', desc: 'Add the personal details and memories that help this family member feel real on the tree.' },
       step5: { kicker: 'Step 5', title: 'Parents', desc: 'Add every parent or parent figure connected to this person. You can add biological parents, step-parents, adoptive parents, foster parents, guardians, or any other parent figure.' },
-      step6: { kicker: 'Step 6', title: 'Children and siblings', desc: 'Add close family members linked to this person. Keep these entries simple so they are easy to fill in.' },
-      step7: { kicker: 'Step 7', title: 'Partners and notes', desc: 'Add partners or spouses, plus any final notes that should travel with this person’s record.' },
-      step8: { kicker: 'Step 8', title: 'Review and submit', desc: 'Review the information and submit the form to Firebase.' },
-      progress: ['Identity', 'Photo', 'Life', 'Story', 'Parents', 'Children', 'Partners', 'Review'],
+      step6: { kicker: 'Step 6', title: 'Children', desc: 'Add children linked to this person. Keep these entries simple so they are easy to fill in.' },
+      step7: { kicker: 'Step 7', title: 'Siblings and notes', desc: 'Add siblings linked to this person, plus any final family notes that help explain this person’s place in the wider family.' },
+      step8: { kicker: 'Step 8', title: 'Partners', desc: 'Choose marital status and add partner details when relevant.' },
+      step9: { kicker: 'Step 9', title: 'Review and submit', desc: 'Review the information and submit the form to Firebase.' },
+      progress: ['Identity', 'Photo', 'Life', 'Story', 'Parents', 'Children', 'Siblings', 'Partners', 'Review'],
       counter: 'Step {{current}} of {{total}}',
     },
     fields: {
       fullName: 'Full name and surname', birthDate: 'Birth date', nickname: 'Nickname or preferred name', prefix: 'Title or prefix', maidenName: 'Birth surname',
       gender: 'Gender', birthPlace: 'Birth place', stillAlive: 'Still living?', deathDate: 'Death date', deathPlace: 'Death place', currentLocation: 'Current town or city',
       heritage: 'Nationality or heritage', occupation: 'Occupation', education: 'Education or training', maritalStatus: 'Marital status', languages: 'Languages spoken',
-      biography: 'About this person', achievements: 'Important life moments', interests: 'Interests and hobbies', personality: 'Personality and how people remember them', familyNotes: 'Additional family notes',
-      relationshipName: 'Full name', relationshipBirthDate: 'Birth date',
+      biography: 'About this person', achievements: 'Important life moments', interests: 'Interests and hobbies', personality: 'Personality and how people remember them', familyNotes: 'Additional family notes (any family connection)',
+      relationshipName: 'Full name and surname', relationshipBirthDate: 'Birth date', relationshipPhoto: 'Photo', partnerType: 'Type of partner',
     },
     placeholders: {
       prefix: 'Mr, Mrs, Dr', place: 'Town, city, or country', currentLocation: 'Where they live or are based', heritage: 'South African, British, Xhosa, etc.',
       education: 'School, degree, trade, or training', languages: 'Separate with commas',
       biography: 'A short summary of who this person is and why they matter in the family.', achievements: 'Important moments, achievements, work, or milestones.',
       interests: 'Things they enjoy, collect, create, or care about.', personality: 'Describe their character, habits, sayings, or memorable traits.',
-      familyNotes: 'Anything else that would help the family understand this person’s place in the tree.',
+      familyNotes: 'Anything else that would help the family understand this person’s place in the tree or wider family.',
     },
     help: {
       biography: 'Write a short summary about who they are, what kind of person they are, or what matters most about them.',
       achievements: 'Examples: military service, awards, work they were proud of, moving country, raising a family, or special milestones.',
       interests: 'Things they enjoy doing, collecting, making, watching, or talking about.',
       personality: 'Examples: funny, strict, kind, quiet, loved singing, always told jokes, had a favourite saying.',
-      familyNotes: 'Add anything else that helps the family understand this person’s place in the tree.',
-      relationshipName: 'Enter the full name that should appear on the family tree.',
+      familyNotes: 'Add anything else that helps the family understand this person’s place in the tree or wider family.',
+      relationshipName: 'Start typing to search saved people, or enter the name manually.',
       relationshipBirthDate: 'Add a date if it is known.',
       relationshipType: 'Choose the relationship that best fits.',
+      partners: 'Add a spouse, former spouse, or partner when the marital status is anything other than single.',
+      partnerNameSearch: 'Select a saved person below, or keep typing to enter a new name.',
+      partnerType: 'Choose the type of partner for this connection.',
       photoWidget: 'Upload, crop, and preview the photo before it is saved.',
       noPhoto: 'No photo selected yet.',
       photoReady: 'Photo ready.',
       photoReadyPending: 'Photo ready and waiting to be uploaded.',
     },
-    groups: { parents: 'Parents', children: 'Children', siblings: 'Siblings', partners: 'Partners' },
+    groups: { parents: 'Parents', children: 'Children', siblings: 'Siblings', partners: 'Partners', relationships: 'Relationships' },
     relationship: { parentType: 'What kind of parent is this?', childType: 'What kind of child is this?', siblingType: 'What kind of sibling is this?', partnerType: 'What kind of partner is this?' },
     options: {
       yes: 'Yes', no: 'No', notSure: 'Not sure', other: 'Other',
@@ -119,10 +124,10 @@ const translations = {
       parent: { biological: 'Biological parent', adoptive: 'Adoptive parent', step: 'Step-parent', foster: 'Foster parent', guardian: 'Guardian' },
       child: { biological: 'Biological child', adopted: 'Adopted child', step: 'Stepchild', foster: 'Foster child', ward: 'Ward' },
       sibling: { full: 'Full sibling', half: 'Half sibling', step: 'Step-sibling', adoptive: 'Adoptive sibling', foster: 'Foster sibling' },
-      partner: { spouse: 'Spouse', partner: 'Partner', fiance: 'Fiancé / fiancée', formerSpouse: 'Former spouse', formerPartner: 'Former partner' },
+      partner: { wife: 'Wife', husband: 'Husband', exWife: 'Ex-wife', exHusband: 'Ex-husband', girlfriend: 'Girlfriend', boyfriend: 'Boyfriend', fiance: 'Fiancé / Fiancée', partner: 'Partner', other: 'Other' },
     },
     review: { name: 'Name:', birthDate: 'Birth date:', birthPlace: 'Birth place:', currentLocation: 'Current location:', occupation: 'Occupation:' },
-    entryLabels: { parent: 'Parent', child: 'Child', sibling: 'Sibling', partner: 'Partner' },
+    entryLabels: { parent: 'Parent', child: 'Child', sibling: 'Sibling', partner: 'Partner', relationship: 'Relationship' },
     crop: { title: 'Adjust photo', desc: 'Move the image so the face sits nicely in the preview.', zoom: 'Zoom', horizontal: 'Move left and right', vertical: 'Move up and down', preview: 'Preview' },
     status: {
       invalidImage: 'Please choose a valid image file.', photoFail: 'That photo could not be prepared.',
@@ -165,49 +170,53 @@ const translations = {
     buttons: {
       back: 'Terug', next: 'Volgende', submit: 'Dien vorm in', submitting: 'Besig om in te dien...', cancel: 'Kanselleer', usePhoto: 'Gebruik hierdie foto',
       choosePhoto: 'Kies foto', replacePhoto: 'Vervang foto', removePhoto: 'Verwyder foto',
-      addParent: 'Voeg ouer by', addChild: 'Voeg kind by', addSibling: 'Voeg broer of suster by', addPartner: 'Voeg maat by', remove: 'Verwyder',
+      addParent: 'Voeg ouer by', addChild: 'Voeg kind by', addSibling: 'Voeg broer of suster by', addPartner: 'Voeg maat by', addRelationship: 'Voeg verhouding by', remove: 'Verwyder',
     },
     steps: {
       step1: { kicker: 'Stap 1', title: 'Basiese besonderhede', desc: 'Vul die belangrikste besonderhede in vir die familielid wat bygevoeg word. Net volle naam en geboortedatum is verpligtend.' },
       step2: { kicker: 'Stap 2', title: 'Profielfoto', desc: 'Voeg die hoof foto by en sny dit sodat dit hierdie persoon op die boom verteenwoordig.' },
-      step3: { kicker: 'Stap 3', title: 'Lewensbesonderhede', desc: 'Voeg tydlyn- en plekbesonderhede by wat help om hierdie persoon in die familieverhaal te plaas.' },
+      step3: { kicker: 'Stap 3', title: 'Lewensbesonderhede', desc: 'Voeg nuttige tydlyn- en plekbesonderhede by wat help om hierdie persoon in die familieverhaal te plaas.' },
       step4: { kicker: 'Stap 4', title: 'Lewensverhaal', desc: 'Voeg persoonlike besonderhede en herinneringe by wat help om hierdie familielid eg op die boom te laat voel.' },
       step5: { kicker: 'Stap 5', title: 'Ouers', desc: 'Voeg elke ouer of ouerfiguur by wat met hierdie persoon verbind is. Jy kan biologiese ouers, stiefouers, aangenome ouers, pleegouers, voogde of enige ander ouerfiguur byvoeg.' },
-      step6: { kicker: 'Stap 6', title: 'Kinders en broers of susters', desc: 'Voeg naby familielede by wat aan hierdie persoon gekoppel is. Hou hierdie inskrywings eenvoudig sodat dit maklik is om in te vul.' },
-      step7: { kicker: 'Stap 7', title: 'Maats en notas', desc: 'Voeg maats of eggenote by, plus enige laaste notas wat saam met hierdie persoon se rekord moet gaan.' },
-      step8: { kicker: 'Stap 8', title: 'Gaan na en dien in', desc: 'Gaan die inligting na en dien die vorm na Firebase in.' },
-      progress: ['Identiteit', 'Foto', 'Lewe', 'Verhaal', 'Ouers', 'Kinders', 'Maats', 'Oorsig'],
+      step6: { kicker: 'Stap 6', title: 'Kinders', desc: 'Voeg kinders by wat aan hierdie persoon gekoppel is. Hou hierdie inskrywings eenvoudig sodat dit maklik is om in te vul.' },
+      step7: { kicker: 'Stap 7', title: 'Broers, susters en notas', desc: 'Voeg broers en susters by wat aan hierdie persoon gekoppel is, plus enige finale familienotas wat hierdie persoon se plek in die wyer familie help verduidelik.' },
+      step8: { kicker: 'Stap 8', title: 'Maats', desc: 'Kies huwelikstatus en voeg maatbesonderhede by waar dit van toepassing is.' },
+      step9: { kicker: 'Stap 9', title: 'Gaan na en dien in', desc: 'Gaan die inligting na en dien die vorm na Firebase in.' },
+      progress: ['Identiteit', 'Foto', 'Lewe', 'Verhaal', 'Ouers', 'Kinders', 'Broers en susters', 'Verhoudings', 'Oorsig'],
       counter: 'Stap {{current}} van {{total}}',
     },
     fields: {
       fullName: 'Volle naam en van', birthDate: 'Geboortedatum', nickname: 'Bynaam of verkose naam', prefix: 'Titel of voorvoegsel', maidenName: 'Nooiensvan of geboortenaam',
       gender: 'Geslag', birthPlace: 'Geboorteplek', stillAlive: 'Leef die persoon nog?', deathDate: 'Sterfdatum', deathPlace: 'Plek van afsterwe', currentLocation: 'Huidige dorp of stad',
       heritage: 'Nasionaliteit of herkoms', occupation: 'Beroep', education: 'Opleiding of skool', maritalStatus: 'Huwelikstatus', languages: 'Tale wat gepraat word',
-      biography: 'Meer oor hierdie persoon', achievements: 'Belangrike lewensoomblikke', interests: 'Belangstellings en stokperdjies', personality: 'Persoonlikheid en hoe mense hulle onthou', familyNotes: 'Bykomende familienotas',
-      relationshipName: 'Volle naam', relationshipBirthDate: 'Geboortedatum',
+      biography: 'Meer oor hierdie persoon', achievements: 'Belangrike lewensoomblikke', interests: 'Belangstellings en stokperdjies', personality: 'Persoonlikheid en hoe mense hulle onthou', familyNotes: 'Bykomende familienotas (enige familieverbinding)',
+      relationshipName: 'Volle naam', relationshipBirthDate: 'Geboortedatum', relationshipPhoto: 'Foto', partnerType: 'Tipe maat',
     },
     placeholders: {
       prefix: 'Mnr, Mev, Dr', place: 'Dorp, stad of land', currentLocation: 'Waar hulle woon of bly', heritage: 'Suid-Afrikaans, Brits, Xhosa, ens.',
       education: 'Skool, graad, ambag of opleiding', languages: 'Skei met kommas',
       biography: '’n Kort beskrywing van wie hierdie persoon is en waarom hulle in die familie belangrik is.', achievements: 'Belangrike oomblikke, prestasies, werk of mylpale.',
       interests: 'Dinge waarvan hulle hou, versamel, maak of waaroor hulle omgee.', personality: 'Beskryf hul karakter, gewoontes, sêgoed of onthoubare eienskappe.',
-      familyNotes: 'Enigiets anders wat die familie help om hierdie persoon se plek in die boom te verstaan.',
+      familyNotes: 'Enigiets anders wat die familie help om hierdie persoon se plek in die boom of wyer familie te verstaan.',
     },
     help: {
       biography: 'Skryf kortliks wie hulle is, watter soort mens hulle is, of wat die belangrikste van hulle is.',
       achievements: 'Voorbeelde: militêre diens, toekennings, werk waarop hulle trots was, verhuising, ’n gesin grootmaak, of spesiale mylpale.',
       interests: 'Dinge wat hulle geniet om te doen, te versamel, te maak, te kyk of oor te praat.',
       personality: 'Voorbeelde: snaaks, streng, vriendelik, stil, lief vir sing, het altyd grappies vertel, of ’n gunsteling sêding gehad.',
-      familyNotes: 'Voeg enigiets anders by wat die familie help om hierdie persoon se plek in die boom te verstaan.',
-      relationshipName: 'Tik die volle naam wat op die stamboom moet verskyn.',
+      familyNotes: 'Voeg enigiets anders by wat die familie help om hierdie persoon se plek in die boom of wyer familie te verstaan.',
+      relationshipName: 'Begin tik om gestoorde mense te soek, of tik die naam handmatig in.',
       relationshipBirthDate: 'Voeg ’n datum by as dit bekend is.',
       relationshipType: 'Kies die verhouding wat die beste pas.',
+      partners: 'Voeg ’n eggenoot, vorige eggenoot of maat by wanneer die huwelikstatus enigiets anders as ongetroud is.',
+      partnerNameSearch: 'Kies ’n gestoorde persoon hieronder, of hou aan tik om ’n nuwe naam in te voer.',
+      partnerType: 'Kies die tipe maat vir hierdie verbintenis.',
       photoWidget: 'Laai die foto op, sny dit en kyk dit na voordat dit gestoor word.',
       noPhoto: 'Nog geen foto gekies nie.',
       photoReady: 'Foto is gereed.',
       photoReadyPending: 'Foto is gereed en wag om opgelaai te word.',
     },
-    groups: { parents: 'Ouers', children: 'Kinders', siblings: 'Broers en susters', partners: 'Maats' },
+    groups: { parents: 'Ouers', children: 'Kinders', siblings: 'Broers en susters', partners: 'Maats', relationships: 'Verhoudings' },
     relationship: { parentType: 'Watter soort ouer is dit?', childType: 'Watter soort kind is dit?', siblingType: 'Watter soort broer of suster is dit?', partnerType: 'Watter soort maat is dit?' },
     options: {
       yes: 'Ja', no: 'Nee', notSure: 'Nie seker nie', other: 'Ander',
@@ -216,10 +225,10 @@ const translations = {
       parent: { biological: 'Biologiese ouer', adoptive: 'Aangenome ouer', step: 'Stiefouer', foster: 'Pleegouer', guardian: 'Voog' },
       child: { biological: 'Biologiese kind', adopted: 'Aangenome kind', step: 'Stiefkind', foster: 'Pleegkind', ward: 'Wykind' },
       sibling: { full: 'Vol broer of suster', half: 'Halfbroer of -suster', step: 'Stiefbroer of -suster', adoptive: 'Aangenome broer of suster', foster: 'Pleegbroer of -suster' },
-      partner: { spouse: 'Eggenoot of eggenote', partner: 'Maat', fiance: 'Verloofde', formerSpouse: 'Vorige eggenoot of eggenote', formerPartner: 'Vorige maat' },
+      partner: { wife: 'Vrou', husband: 'Man', exWife: 'Eks-vrou', exHusband: 'Eks-man', girlfriend: 'Meisie', boyfriend: 'Kêrel', fiance: 'Verloofde', partner: 'Maat', other: 'Ander' },
     },
     review: { name: 'Naam:', birthDate: 'Geboortedatum:', birthPlace: 'Geboorteplek:', currentLocation: 'Huidige plek:', occupation: 'Beroep:' },
-    entryLabels: { parent: 'Ouer', child: 'Kind', sibling: 'Broer of suster', partner: 'Maat' },
+    entryLabels: { parent: 'Ouer', child: 'Kind', sibling: 'Broer of suster', partner: 'Maat', relationship: 'Verhouding' },
     crop: { title: 'Pas foto aan', desc: 'Skuif die beeld sodat die gesig mooi in die voorskou sit.', zoom: 'Zoem', horizontal: 'Skuif links en regs', vertical: 'Skuif op en af', preview: 'Voorskou' },
     status: {
       invalidImage: 'Kies asseblief ’n geldige beeldlêer.', photoFail: 'Daardie foto kon nie voorberei word nie.',
@@ -268,12 +277,13 @@ let wizardProgress = null;
 let prevStepBtn = null;
 let nextStepBtn = null;
 let wizardStepCount = null;
-let reviewName = null;
-let reviewBirthDate = null;
-let reviewBirthPlace = null;
-let reviewCurrentLocation = null;
-let reviewOccupation = null;
+let reviewSummary = null;
+let partnerSection = null;
+let wizardSidebar = null;
+let wizardMobileStepCount = null;
+let wizardStage = null;
 let stepPanels = [];
+let relationshipAutocompleteNames = [];
 
 function cacheDomRefs() {
   form = document.getElementById('familyIntakeForm');
@@ -299,11 +309,11 @@ function cacheDomRefs() {
   prevStepBtn = document.getElementById('prevStepBtn');
   nextStepBtn = document.getElementById('nextStepBtn');
   wizardStepCount = document.getElementById('wizardStepCount');
-  reviewName = document.getElementById('reviewName');
-  reviewBirthDate = document.getElementById('reviewBirthDate');
-  reviewBirthPlace = document.getElementById('reviewBirthPlace');
-  reviewCurrentLocation = document.getElementById('reviewCurrentLocation');
-  reviewOccupation = document.getElementById('reviewOccupation');
+  reviewSummary = document.getElementById('reviewSummary');
+  partnerSection = document.getElementById('partnerSection');
+  wizardSidebar = document.getElementById('wizardSidebar');
+  wizardMobileStepCount = document.getElementById('wizardMobileStepCount');
+  wizardStage = document.querySelector('.wizard-stage');
   stepPanels = [...document.querySelectorAll('.step-panel')];
 
   logSubmitDebug('DOM refs cached', {
@@ -612,15 +622,14 @@ function getInvalidEditLinkMessage() {
 }
 
 async function refreshRelationshipAutocompleteOptions() {
-  const datalist = document.getElementById('savedPeopleRelationshipOptions');
-  if (!datalist) return;
   if (!firestoreDb || !currentFamilySlug) {
-    datalist.innerHTML = '';
+    relationshipAutocompleteNames = [];
+    refreshPartnerAutocompleteMenus();
     return;
   }
   const records = await fetchSavedPeopleForCurrentFamily(firestoreDb);
-  const names = [...new Set(records.map(getSavedPersonName).filter(Boolean).sort((a, b) => a.localeCompare(b)))];
-  datalist.innerHTML = names.map((name) => `<option value="${escapeHtml(name)}"></option>`).join('');
+  relationshipAutocompleteNames = [...new Set(records.map(getSavedPersonName).filter(Boolean).sort((a, b) => a.localeCompare(b)))];
+  refreshPartnerAutocompleteMenus();
 }
 
 async function findSavedPersonByName(db, fullName) {
@@ -638,6 +647,93 @@ function setPhotoStoreValue(photoKey, photoUrl) {
     return;
   }
   PHOTO_STORE.set(photoKey, { dataUrl: '', filename: '', url: nextUrl, deleteUrl: '' });
+}
+
+function getAutocompleteNames() {
+  return relationshipAutocompleteNames || [];
+}
+
+function ensureAutocompleteAnchor(nameInput) {
+  if (!nameInput) return null;
+  let anchor = nameInput.closest('.autocomplete-anchor');
+  if (anchor) return anchor;
+  anchor = document.createElement('div');
+  anchor.className = 'autocomplete-anchor';
+  nameInput.parentNode?.insertBefore(anchor, nameInput);
+  anchor.appendChild(nameInput);
+  return anchor;
+}
+
+function ensureAutocompleteMenu(nameInput, menuClassName = 'partner-name-menu') {
+  const anchor = ensureAutocompleteAnchor(nameInput);
+  if (!anchor) return null;
+  let menu = anchor.querySelector(`.${menuClassName}`);
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.className = `${menuClassName} hidden`;
+    menu.dataset.emptyText = t('common.selectOne');
+    anchor.appendChild(menu);
+  }
+  return menu;
+}
+
+function buildNameAutocomplete(nameInput, options = {}) {
+  const {
+    container = nameInput?.closest('.field') || nameInput?.form || document,
+    autofillHandler = () => {},
+    menuClassName = 'partner-name-menu',
+  } = options;
+  if (!nameInput) return;
+  const menu = ensureAutocompleteMenu(nameInput, menuClassName);
+  if (!menu) return;
+
+  const renderMenu = () => {
+    const query = normalizeComparableValue(nameInput.value);
+    const names = getAutocompleteNames()
+      .filter((name) => !query || normalizeComparableValue(name).includes(query))
+      .slice(0, 40);
+
+    menu.innerHTML = names.length
+      ? names.map((name) => `<button type="button" class="partner-name-option" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('')
+      : `<p class="partner-name-empty">${escapeHtml(t('common.selectOne'))}</p>`;
+
+    menu.querySelectorAll('[data-name]').forEach((button) => {
+      button.addEventListener('click', () => {
+        nameInput.value = button.dataset.name || '';
+        menu.classList.add('hidden');
+        autofillHandler();
+        persistDraft();
+      });
+    });
+  };
+
+  nameInput.addEventListener('focus', () => {
+    renderMenu();
+    if (getAutocompleteNames().length) menu.classList.remove('hidden');
+  });
+  nameInput.addEventListener('input', () => {
+    renderMenu();
+    menu.classList.remove('hidden');
+    persistDraft();
+  });
+  nameInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') menu.classList.add('hidden');
+  });
+  nameInput.addEventListener('change', autofillHandler);
+  nameInput.addEventListener('blur', () => {
+    window.setTimeout(() => {
+      menu.classList.add('hidden');
+      autofillHandler();
+    }, 150);
+  });
+
+  container.addEventListener('pointerdown', (event) => {
+    if (!container.contains(event.target) || !nameInput.closest('.field')?.contains(event.target)) {
+      menu.classList.add('hidden');
+    }
+  });
+
+  nameInput._renderNameAutocompleteMenu = renderMenu;
 }
 
 function populateRelationshipCardFromSavedPerson(card, record) {
@@ -665,10 +761,39 @@ function wireRelationshipCardAutocomplete(card) {
   const nameInput = card?.querySelector('input[name$="_name"]');
   if (!nameInput || nameInput.dataset.autofillReady === 'true') return;
   nameInput.dataset.autofillReady = 'true';
-  nameInput.setAttribute('list', 'savedPeopleRelationshipOptions');
   const handler = () => { void tryAutofillRelationshipCard(card, nameInput.value); };
-  nameInput.addEventListener('change', handler);
-  nameInput.addEventListener('blur', handler);
+  buildNameAutocomplete(nameInput, { container: card, autofillHandler: handler });
+}
+
+function populatePrimaryPersonFromSavedRecord(record) {
+  if (!record) return;
+  applySubmissionRecordToForm(record);
+  updateWizardUI();
+}
+
+function wirePrimaryPersonAutocomplete() {
+  const nameInput = document.getElementById('fullName');
+  if (!nameInput || nameInput.dataset.autofillReady === 'true') return;
+  nameInput.dataset.autofillReady = 'true';
+  const handler = async () => {
+    if (!firestoreDb || !currentFamilySlug) return;
+    const record = await findSavedPersonByName(firestoreDb, nameInput.value);
+    if (!record) return;
+    populatePrimaryPersonFromSavedRecord(record);
+    persistDraft();
+  };
+  buildNameAutocomplete(nameInput, {
+    container: nameInput.closest('.field') || nameInput.form || document,
+    autofillHandler: () => { void handler(); },
+  });
+}
+
+function refreshPartnerAutocompleteMenus() {
+  document.querySelectorAll('input[name="fullName"], .entry-card input[name$="_name"]').forEach((input) => {
+    if (typeof input._renderNameAutocompleteMenu === 'function') {
+      input._renderNameAutocompleteMenu();
+    }
+  });
 }
 
 function clearRepeatableGroups() {
@@ -722,7 +847,9 @@ function applySubmissionRecordToForm(record) {
 
   buildAllPhotoWidgets();
   buildCustomSelects();
+  wirePrimaryPersonAutocomplete();
   updateDeathFields();
+  updatePartnerSectionVisibility();
   renderReviewSummary();
 }
 
@@ -789,9 +916,11 @@ export async function initFamilyForm() {
   initRepeatableGroups();
   wireCropperEvents();
   wireFormEvents();
+  wirePrimaryPersonAutocomplete();
   initLanguageSwitcher();
   buildCustomSelects();
   updateDeathFields();
+  updatePartnerSectionVisibility();
   applyTranslations();
   updateFamilyContextUi();
   updateWizardUI();
@@ -884,6 +1013,7 @@ function applyTranslations() {
       wireRelationshipCardAutocomplete(card);
     });
   });
+  wirePrimaryPersonAutocomplete();
   buildCustomSelects();
   void refreshRelationshipAutocompleteOptions();
   refreshReviewLabels();
@@ -911,8 +1041,25 @@ function buildWizardProgress() {
     button.type = 'button';
     button.className = 'wizard-progress-btn';
     button.textContent = `${index + 1}. ${label}`;
-    button.addEventListener('click', () => goToStep(index, true));
+    button.addEventListener('click', () => { goToStep(index, true); });
     wizardProgress.appendChild(button);
+  });
+}
+
+function syncWizardStageMinHeight() {
+  if (!wizardStage || !stepPanels[currentStep] || typeof window === 'undefined') return;
+  if (window.innerWidth <= 920) {
+    wizardStage.style.minHeight = '';
+    return;
+  }
+  window.requestAnimationFrame(() => {
+    const activePanel = stepPanels[currentStep];
+    if (!activePanel || !wizardStage) return;
+    const activeHeight = Math.ceil(activePanel.getBoundingClientRect().height);
+    const currentMinHeight = parseFloat(wizardStage.style.minHeight || '0') || 0;
+    if (activeHeight > currentMinHeight) {
+      wizardStage.style.minHeight = `${activeHeight}px`;
+    }
   });
 }
 
@@ -924,7 +1071,9 @@ function updateWizardUI() {
     button.classList.toggle('is-complete', index < currentStep);
     button.disabled = isRestartCountdownActive;
   });
-  wizardStepCount.textContent = t('steps.counter', { current: currentStep + 1, total: stepPanels.length });
+  const stepCounterText = t('steps.counter', { current: currentStep + 1, total: stepPanels.length });
+  wizardStepCount.textContent = stepCounterText;
+  if (wizardMobileStepCount) wizardMobileStepCount.textContent = stepCounterText;
   prevStepBtn.disabled = isRestartCountdownActive || currentStep === 0;
   const isLast = currentStep === stepPanels.length - 1;
   nextStepBtn.classList.toggle('hidden', isLast);
@@ -932,6 +1081,7 @@ function updateWizardUI() {
   nextStepBtn.disabled = isRestartCountdownActive;
   submitBtn.disabled = isRestartCountdownActive;
   if (isLast) renderReviewSummary();
+  syncWizardStageMinHeight();
 }
 
 function goToStep(targetStep, allowJump = false) {
@@ -942,10 +1092,6 @@ function goToStep(targetStep, allowJump = false) {
   currentStep = targetStep;
   persistDraft();
   updateWizardUI();
-  document.getElementById('wizardProgress')?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'start',
-  });
 }
 
 function validateCurrentStep() {
@@ -964,13 +1110,244 @@ function validateCurrentStep() {
 }
 
 function renderReviewSummary() {
-  if (!reviewName || !reviewBirthDate || !reviewBirthPlace || !reviewCurrentLocation || !reviewOccupation) return;
-  reviewName.textContent = document.getElementById('fullName')?.value?.trim() || '—';
-  reviewBirthDate.textContent = document.getElementById('birthDate')?.value?.trim() || '—';
-  reviewBirthPlace.textContent = form.elements.namedItem('birthPlace')?.value?.trim() || '—';
-  reviewCurrentLocation.textContent = form.elements.namedItem('currentLocation')?.value?.trim() || '—';
-  reviewOccupation.textContent = form.elements.namedItem('occupation')?.value?.trim() || '—';
+  if (!reviewSummary || !form) return;
+
+  const submission = buildSubmissionObject();
+  const person = submission.person || {};
+  const relationships = person.relationships || {};
+
+  const sections = [
+    {
+      title: t('steps.progress')[0] || 'Identity',
+      className: 'review-section--identity',
+      fields: [
+        [t('fields.fullName'), person.name],
+        [t('fields.birthDate'), person.birthDate],
+        [t('fields.nickname'), person.nickname],
+        [t('fields.prefix'), person.prefix],
+        [t('fields.maidenName'), person.maidenName],
+        [t('fields.gender'), person.gender],
+      ],
+    },
+    {
+      title: t('steps.progress')[1] || 'Photo',
+      className: 'review-section--photo',
+      fields: [[t('steps.step2.title'), person.photo ? reviewText('added') : reviewText('notAdded')]],
+    },
+    {
+      title: t('steps.progress')[2] || 'Life',
+      className: 'review-section--life review-section--wide',
+      fields: [
+        [t('fields.birthPlace'), person.birthPlace],
+        [t('fields.stillAlive'), formatReviewBoolean(person.isAlive)],
+        [t('fields.deathDate'), person.deathDate],
+        [t('fields.deathPlace'), person.deathPlace],
+        [t('fields.currentLocation'), person.currentLocation],
+        [t('fields.heritage'), person.heritage],
+        [t('fields.occupation'), person.occupation],
+        [t('fields.education'), person.education],
+      ],
+    },
+    {
+      title: t('steps.progress')[3] || 'Story',
+      className: 'review-section--story review-section--wide',
+      fields: [
+        [t('fields.languages'), person.languages],
+        [t('fields.biography'), person.biography],
+        [t('fields.achievements'), person.achievements],
+        [t('fields.interests'), person.interests],
+        [t('fields.personality'), person.personality],
+      ],
+    },
+    {
+      title: t('groups.parents'),
+      relationshipGroup: 'parents',
+      entries: relationships.parents || [],
+      emptyText: `${reviewText('noEntriesAdded').replace('entries', String(t('groups.parents') || 'parents').toLowerCase()).replace('inskrywings', String(t('groups.parents') || 'Ouers').toLowerCase())}`,
+    },
+    {
+      title: t('groups.children'),
+      relationshipGroup: 'children',
+      entries: relationships.children || [],
+      emptyText: `${reviewText('noEntriesAdded').replace('entries', String(t('groups.children') || 'children').toLowerCase()).replace('inskrywings', String(t('groups.children') || 'Kinders').toLowerCase())}`,
+    },
+    {
+      title: t('groups.siblings'),
+      relationshipGroup: 'siblings',
+      entries: relationships.siblings || [],
+      emptyText: `${reviewText('noEntriesAdded').replace('entries', String(t('groups.siblings') || 'siblings').toLowerCase()).replace('inskrywings', String(t('groups.siblings') || 'Broers en susters').toLowerCase())}`,
+    },
+    {
+      title: t('steps.progress')[7] || t('groups.partners') || 'Partners',
+      relationshipSummaryGroup: 'partners',
+      maritalStatus: person.maritalStatus,
+      entries: relationships.partners || [],
+      emptyText: `${reviewText('noEntriesAdded').replace('entries', String(t('groups.partners') || 'partners').toLowerCase()).replace('inskrywings', String(t('groups.partners') || 'Maats').toLowerCase())}`,
+    },
+    {
+      title: t('fields.familyNotes'),
+      className: 'review-section--notes review-section--wide',
+      fields: [[t('fields.familyNotes'), person.familyNotes]],
+    },
+    {
+      title: reviewText('submissionDetails'),
+      className: 'review-section--meta',
+      fields: [
+        [reviewText('status'), person.submissionMeta?.status || 'pending'],
+        [reviewText('submittedAt'), person.submissionMeta?.submittedAt || reviewText('generatedOnSubmit')],
+        [reviewText('updatedAt'), person.submissionMeta?.updatedAt || reviewText('generatedOnSubmit')],
+      ],
+    },
+  ];
+
+  reviewSummary.innerHTML = sections.map((section) => {
+    if (section.relationshipSummaryGroup) {
+      return renderRelationshipSummarySection(section.title, section.maritalStatus, section.relationshipSummaryGroup, section.entries, section.emptyText);
+    }
+    if (section.relationshipGroup) {
+      return renderRelationshipReviewSection(section.title, section.relationshipGroup, section.entries, section.emptyText);
+    }
+    return renderFieldReviewSection(section.title, section.fields, section.className);
+  }).join('');
 }
+
+function reviewText(key) {
+  const af = {
+    added: 'Bygevoeg',
+    notAdded: 'Nie bygevoeg nie',
+    notProvided: 'Nie verskaf nie',
+    submissionDetails: 'Indieningsbesonderhede',
+    status: 'Status',
+    submittedAt: 'Ingedien op',
+    updatedAt: 'Bygewerk op',
+    generatedOnSubmit: 'Word met indiening geskep',
+    noEntriesAdded: 'Geen inskrywings bygevoeg nie.',
+  };
+  const en = {
+    added: 'Added',
+    notAdded: 'Not added',
+    notProvided: 'Not provided',
+    submissionDetails: 'Submission details',
+    status: 'Status',
+    submittedAt: 'Submitted at',
+    updatedAt: 'Updated at',
+    generatedOnSubmit: 'Generated on submit',
+    noEntriesAdded: 'No entries added.',
+  };
+  return (currentLanguage === 'af' ? af : en)[key] || en[key] || '';
+}
+
+function formatReviewBoolean(value) {
+  if (value === 'true') return t('options.yes');
+  if (value === 'false') return t('options.no');
+  if (value === 'unknown') return t('options.notSure');
+  return reviewText('notProvided');
+}
+
+function formatReviewValue(value) {
+  const normalized = String(value || '').trim();
+  return normalized || reviewText('notProvided');
+}
+
+function renderFieldReviewSection(title, fields = [], className = '') {
+  const items = fields.map(([label, value]) => {
+    const displayValue = formatReviewValue(value);
+    const isLongValue = String(displayValue || '').trim().length > 140;
+    return `
+    <div class="review-item${isLongValue ? ' review-item--long' : ''}">
+      <dt>${escapeHtml(String(label || 'Field'))}</dt>
+      <dd>${escapeHtml(displayValue)}</dd>
+    </div>
+  `;
+  }).join('');
+
+  return `
+    <section class="review-section review-section--compact ${escapeHtml(String(className || '').trim())}">
+      <h3>${escapeHtml(String(title || 'Section'))}</h3>
+      <dl class="review-list review-list--compact">${items}</dl>
+    </section>
+  `;
+}
+
+
+function renderRelationshipSummarySection(title, maritalStatus, relationshipGroup, entries = [], emptyText = 'No entries added.') {
+  const statusValue = formatReviewValue(maritalStatus);
+  const statusBlock = `
+    <div class="review-item">
+      <dt>${escapeHtml(String(t('fields.maritalStatus') || 'Marital status'))}</dt>
+      <dd>${escapeHtml(statusValue)}</dd>
+    </div>
+  `;
+
+  if (!entries.length) {
+    return `
+      <section class="review-section review-section--relationship review-section--relationship-summary">
+        <h3>${escapeHtml(String(title || 'Relationships'))}</h3>
+        <dl class="review-list review-list--compact">${statusBlock}</dl>
+        <p class="review-empty">${escapeHtml(emptyText)}</p>
+      </section>
+    `;
+  }
+
+  const cardsMarkup = renderRelationshipReviewSection(title, relationshipGroup, entries, emptyText);
+  return cardsMarkup.replace('<dl class="review-list">', `<dl class="review-list">${statusBlock}`);
+}
+
+function renderRelationshipReviewSection(title, relationshipGroup, entries = [], emptyText = 'No entries added.') {
+  if (!entries.length) {
+    return `
+      <section class="review-section review-section--relationship">
+        <h3>${escapeHtml(String(title || 'Relationships'))}</h3>
+        <p class="review-empty">${escapeHtml(emptyText)}</p>
+      </section>
+    `;
+  }
+
+  const cards = entries.map((entry, index) => {
+    const relationshipFields = [
+      [t('fields.relationshipName'), entry.name],
+      [getRelationshipTypeLabel(relationshipGroup), entry.type],
+      ...(relationshipGroup === 'parents' ? [[t('fields.relationshipBirthDate'), entry.birthDate]] : []),
+      [t('fields.relationshipPhoto'), entry.photo ? reviewText('added') : reviewText('notAdded')],
+    ];
+
+    const visibleFields = relationshipFields.filter(([, value]) => value || value === false);
+    return `
+      <article class="review-entry-card">
+        <h4>${escapeHtml(`${getEntryCardLabel(relationshipGroup, title)} ${index + 1}`)}</h4>
+        <dl class="review-list">${visibleFields.map(([label, value]) => `
+          <div class="review-item">
+            <dt>${escapeHtml(String(label || 'Field'))}</dt>
+            <dd>${escapeHtml(formatReviewValue(value))}</dd>
+          </div>
+        `).join('')}</dl>
+      </article>
+    `;
+  }).join('');
+
+  return `
+    <section class="review-section review-section--relationship">
+      <h3>${escapeHtml(String(title || 'Relationships'))}</h3>
+      <div class="review-entry-grid">${cards}</div>
+    </section>
+  `;
+}
+
+function getRelationshipTypeLabel(groupName) {
+  if (groupName === 'parents') return t('relationship.parentType');
+  if (groupName === 'children') return t('relationship.childType');
+  if (groupName === 'partners') return t('fields.partnerType');
+  return t('relationship.siblingType');
+}
+
+function getEntryCardLabel(groupName, fallbackTitle) {
+  if (groupName === 'parents') return t('entryLabels.parent');
+  if (groupName === 'children') return t('entryLabels.child');
+  if (groupName === 'partners') return t('entryLabels.partner');
+  if (groupName === 'siblings') return t('entryLabels.sibling');
+  return String(fallbackTitle || 'Entry').replace(/s$/, '');
+}
+
 
 function clearRestartCountdown() {
   if (restartCountdownTimer) {
@@ -991,10 +1368,6 @@ function resetFormAfterSubmit() {
   updateDeathFields();
   updateWizardUI();
   setStatus('');
-  document.getElementById('wizardProgress')?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'start',
-  });
   logSubmitDebug('Form reset completed');
 }
 
@@ -1023,11 +1396,7 @@ function startSubmitRestartCountdown(seconds = 5) {
 }
 
 function refreshReviewLabels() {
-  document.querySelector('[data-i18n="review.name"]').textContent = t('review.name');
-  document.querySelector('[data-i18n="review.birthDate"]').textContent = t('review.birthDate');
-  document.querySelector('[data-i18n="review.birthPlace"]').textContent = t('review.birthPlace');
-  document.querySelector('[data-i18n="review.currentLocation"]').textContent = t('review.currentLocation');
-  document.querySelector('[data-i18n="review.occupation"]').textContent = t('review.occupation');
+  renderReviewSummary();
 }
 
 function buildAllPhotoWidgets() {
@@ -1218,11 +1587,13 @@ function addEntry(groupName, values = {}) {
       <button type="button" class="danger-btn btn entry-remove-btn"></button>
     </div>
     <div class="grid two-col compact-grid entry-grid">
-      <label class="field relationship-name-field">
+      <label class="field relationship-name-field ${groupName === 'partners' ? 'relationship-name-field-partner' : ''}">
         <span><span class="entry-name-label"></span> <em class="entry-optional"></em></span>
         <small class="field-help entry-name-help"></small>
-        <input type="text" name="${groupName}_${index}_name" list="savedPeopleRelationshipOptions" value="${escapeHtml(values.name || '')}" />
+        <div class="autocomplete-anchor"><input type="text" autocomplete="off" name="${groupName}_${index}_name" value="${escapeHtml(values.name || '')}" /><div class="partner-name-menu hidden"></div></div>
+        <small class="field-help partner-name-search-help"></small>
       </label>
+${config.includeType === false ? '' : `
       <label class="field relationship-type-field">
         <span><span class="entry-type-label"></span> <em class="entry-optional"></em></span>
         <small class="field-help entry-type-help"></small>
@@ -1230,7 +1601,7 @@ function addEntry(groupName, values = {}) {
           <option value="" data-i18n-option="common.selectOne">${escapeHtml(t('common.selectOne'))}</option>
           ${config.optionValues.map((value, idx) => `<option value="${escapeHtml(value)}" data-i18n-key="${config.optionKeys[idx]}" ${values.type === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}
         </select>
-      </label>
+      </label>`}
       ${config.includeBirthDate ? `
       <label class="field relationship-birth-field">
         <span><span class="entry-birth-label"></span> <em class="entry-optional"></em></span>
@@ -1268,8 +1639,12 @@ function refreshEntryCardText(card) {
   optionalNodes.forEach((el) => { el.textContent = t('common.optional'); });
   card.querySelector('.entry-name-label').textContent = t('fields.relationshipName');
   card.querySelector('.entry-name-help').textContent = t('help.relationshipName');
-  card.querySelector('.entry-type-label').textContent = t(config.labelKey);
-  card.querySelector('.entry-type-help').textContent = t('help.relationshipType');
+  const partnerNameSearchHelp = card.querySelector('.partner-name-search-help');
+  if (partnerNameSearchHelp) partnerNameSearchHelp.textContent = t('help.partnerNameSearch');
+  const typeLabel = card.querySelector('.entry-type-label');
+  if (typeLabel) typeLabel.textContent = t(config.labelKey);
+  const typeHelp = card.querySelector('.entry-type-help');
+  if (typeHelp) typeHelp.textContent = groupName === 'partners' ? t('help.partnerType') : t('help.relationshipType');
   const birthLabel = card.querySelector('.entry-birth-label');
   if (birthLabel) birthLabel.textContent = t('fields.relationshipBirthDate');
   const birthHelp = card.querySelector('.entry-birth-help');
@@ -1313,6 +1688,7 @@ function remapPhotoKey(oldKey, newKey) {
 
 function wireFormEvents() {
   stillAliveSelect?.addEventListener('change', updateDeathFields);
+  form.elements.namedItem('maritalStatus')?.addEventListener('change', updatePartnerSectionVisibility);
   form.addEventListener('input', handleFormInteraction);
   form.addEventListener('change', handleFormInteraction);
   form.addEventListener('submit', handleSubmit);
@@ -1323,6 +1699,7 @@ function wireFormEvents() {
 function handleFormInteraction(event) {
   const target = event?.target;
   if (target?.name === 'fullName' || target?.name === 'birthDate') clearDuplicatePreview();
+  if (target?.name === 'maritalStatus') updatePartnerSectionVisibility();
   if (currentStep === stepPanels.length - 1) renderReviewSummary();
   if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
     target.setCustomValidity('');
@@ -1334,6 +1711,19 @@ function updateDeathFields() {
   if (!stillAliveSelect) return;
   const hideDeath = stillAliveSelect.value === 'true';
   document.querySelectorAll('.death-field').forEach((field) => field.classList.toggle('hidden', hideDeath));
+}
+
+function shouldShowPartnerSection(maritalStatusValue) {
+  const normalized = String(maritalStatusValue || '').trim().toLowerCase();
+  return Boolean(normalized && normalized !== 'single');
+}
+
+function updatePartnerSectionVisibility() {
+  if (!partnerSection || !form) return;
+  const maritalStatusField = form.elements.namedItem('maritalStatus');
+  const maritalStatusValue = maritalStatusField && 'value' in maritalStatusField ? maritalStatusField.value : '';
+  const shouldShow = shouldShowPartnerSection(maritalStatusValue);
+  partnerSection.classList.toggle('hidden', !shouldShow);
 }
 
 async function handleSubmit(event) {
@@ -1506,13 +1896,23 @@ function buildSubmissionObject() {
 function getValue(data, key) { return String(data.get(key) || '').trim(); }
 
 function collectRelationshipEntries(data, groupName) {
+  if (groupName === 'partners' && !shouldShowPartnerSection(getValue(data, 'maritalStatus'))) return [];
   const cards = [...document.querySelectorAll(`.entry-card[data-group="${groupName}"]`)];
-  return cards.map((card, index) => ({
-    type: getValue(data, `${groupName}_${index}_type`),
-    name: getValue(data, `${groupName}_${index}_name`),
-    birthDate: getValue(data, `${groupName}_${index}_birthDate`),
-    photo: getPhotoValue(`relationships.${groupName}.${index}.photo`),
-  })).filter((entry) => entry.type || entry.name || entry.birthDate || entry.photo);
+  return cards.map((card, index) => {
+    if (groupName === 'partners') {
+      return {
+        type: getValue(data, `${groupName}_${index}_type`),
+        name: getValue(data, `${groupName}_${index}_name`),
+        photo: getPhotoValue(`relationships.${groupName}.${index}.photo`),
+      };
+    }
+    return {
+      type: getValue(data, `${groupName}_${index}_type`),
+      name: getValue(data, `${groupName}_${index}_name`),
+      birthDate: getValue(data, `${groupName}_${index}_birthDate`),
+      photo: getPhotoValue(`relationships.${groupName}.${index}.photo`),
+    };
+  }).filter((entry) => Object.values(entry).some((value) => String(value || '').trim()));
 }
 
 function getPhotoValue(photoKey) {
@@ -1833,6 +2233,18 @@ function closeAllCustomSelects(except) {
     wrapper.classList.remove('is-open');
     wrapper.querySelector('.custom-select-menu')?.classList.add('hidden');
   });
+}
+
+function setWizardSidebarExpanded(_isExpanded) {
+  return;
+}
+
+function collapseWizardSidebarOnMobile() {
+  return;
+}
+
+function initWizardSidebar() {
+  return;
 }
 
 function capitalize(text) {

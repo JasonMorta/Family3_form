@@ -1,7 +1,7 @@
 {
   "name": "family3-react-tsx",
   "private": true,
-  "version": "1.2.6",
+  "version": "1.2.18",
   "type": "module",
   "scripts": {
     "dev": "vite",

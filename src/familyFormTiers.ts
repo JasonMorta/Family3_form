@@ -33,7 +33,8 @@ export type StepContentDef =
   | { type: 'photo'; photoField: string }
   | { type: 'repeatable'; groups: Array<{ name: string; titleKey: string; addButtonKey: string }> }
   | { type: 'repeatableWithNotes'; groups: Array<{ name: string; titleKey: string; addButtonKey: string }>; notesField: BaseField }
-  | { type: 'review' };
+  | { type: 'review' }
+  | { type: 'fieldsWithRepeatableSection'; gridClassName?: string; fields: BaseField[]; repeatableGroup: { name: string; titleKey: string; addButtonKey: string; helpKey?: string } };
 
 export type StepDef = {
   step: number;
@@ -136,27 +137,12 @@ export const familyFormTiers = {
         type: 'fields',
         gridClassName: 'grid two-col',
         fields: [
-          {
-            kind: 'select',
-            name: 'maritalStatus',
-            labelKey: 'fields.maritalStatus',
-            customSelect: true,
-            options: [
-              { value: '', i18nOption: 'common.selectOne', text: 'Select one' },
-              { value: 'Single', i18nOption: 'options.marital.single', text: 'Single' },
-              { value: 'Married', i18nOption: 'options.marital.married', text: 'Married' },
-              { value: 'Divorced', i18nOption: 'options.marital.divorced', text: 'Divorced' },
-              { value: 'Widowed', i18nOption: 'options.marital.widowed', text: 'Widowed' },
-              { value: 'Separated', i18nOption: 'options.marital.separated', text: 'Separated' },
-              { value: 'Partnered', i18nOption: 'options.marital.partnered', text: 'Partnered' },
-            ],
-          },
           { kind: 'input', name: 'languages', type: 'text', labelKey: 'fields.languages', placeholderKey: 'placeholders.languages', placeholder: 'Separate with commas' },
           { kind: 'textarea', name: 'biography', labelKey: 'fields.biography', helpKey: 'help.biography', placeholderKey: 'placeholders.biography', placeholder: 'A short summary of who this person is and why they matter in the family.', rows: 4, full: true },
           { kind: 'textarea', name: 'achievements', labelKey: 'fields.achievements', helpKey: 'help.achievements', placeholderKey: 'placeholders.achievements', placeholder: 'Important moments, achievements, work, or milestones.', rows: 4, full: true },
           { kind: 'textarea', name: 'interests', labelKey: 'fields.interests', helpKey: 'help.interests', placeholderKey: 'placeholders.interests', placeholder: 'Things they enjoy, collect, create, or care about.', rows: 3, full: true },
           { kind: 'textarea', name: 'personality', labelKey: 'fields.personality', helpKey: 'help.personality', placeholderKey: 'placeholders.personality', placeholder: 'Describe their character, habits, sayings, or memorable traits.', rows: 4, full: true },
-        ],
+        ]
       },
     },
     {
@@ -182,7 +168,6 @@ export const familyFormTiers = {
         type: 'repeatable',
         groups: [
           { name: 'children', titleKey: 'groups.children', addButtonKey: 'buttons.addChild' },
-          { name: 'siblings', titleKey: 'groups.siblings', addButtonKey: 'buttons.addSibling' },
         ],
       },
     },
@@ -195,7 +180,7 @@ export const familyFormTiers = {
       },
       content: {
         type: 'repeatableWithNotes',
-        groups: [{ name: 'partners', titleKey: 'groups.partners', addButtonKey: 'buttons.addPartner' }],
+        groups: [{ name: 'siblings', titleKey: 'groups.siblings', addButtonKey: 'buttons.addSibling' }],
         notesField: {
           kind: 'textarea',
           name: 'familyNotes',
@@ -214,6 +199,36 @@ export const familyFormTiers = {
         kickerKey: 'steps.step8.kicker',
         titleKey: 'steps.step8.title',
         descKey: 'steps.step8.desc',
+      },
+      content: {
+        type: 'fieldsWithRepeatableSection',
+        gridClassName: 'grid two-col',
+        fields: [
+          {
+            kind: 'select',
+            name: 'maritalStatus',
+            labelKey: 'fields.maritalStatus',
+            customSelect: true,
+            options: [
+              { value: '', i18nOption: 'common.selectOne', text: 'Select one' },
+              { value: 'Single', i18nOption: 'options.marital.single', text: 'Single' },
+              { value: 'Married', i18nOption: 'options.marital.married', text: 'Married' },
+              { value: 'Divorced', i18nOption: 'options.marital.divorced', text: 'Divorced' },
+              { value: 'Widowed', i18nOption: 'options.marital.widowed', text: 'Widowed' },
+              { value: 'Separated', i18nOption: 'options.marital.separated', text: 'Separated' },
+              { value: 'Partnered', i18nOption: 'options.marital.partnered', text: 'Partnered' },
+            ],
+          },
+        ],
+        repeatableGroup: { name: 'partners', titleKey: 'groups.partners', addButtonKey: 'buttons.addPartner', helpKey: 'help.partners' },
+      },
+    },
+    {
+      step: 8,
+      header: {
+        kickerKey: 'steps.step9.kicker',
+        titleKey: 'steps.step9.title',
+        descKey: 'steps.step9.desc',
       },
       content: { type: 'review' },
     },
