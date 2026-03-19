@@ -1,7 +1,7 @@
 // @ts-nocheck
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
-import { DEFAULT_APP_STATE_COLLECTION, DEFAULT_FORM_SUBMISSIONS_COLLECTION, DEFAULT_FAMILY_DISPLAY_NAME, DEFAULT_FAMILY_SLUG, DEFAULT_SAVED_PEOPLE_DOCUMENT, buildFamilyDisplayNameFromSlug, buildFamilyScopedCollectionName, findFamilyOption, sanitizeFamilySlug } from './familyConfig';
+import { DEFAULT_APP_STATE_COLLECTION, DEFAULT_FORM_SUBMISSIONS_COLLECTION, DEFAULT_FAMILY_DISPLAY_NAME, DEFAULT_FAMILY_SLUG, DEFAULT_SAVED_PEOPLE_DOCUMENT, DEFAULT_UPDATE_REQUESTS_COLLECTION, buildFamilyDisplayNameFromSlug, buildFamilyScopedCollectionName, findFamilyOption, sanitizeFamilySlug } from './familyConfig';
 
 const DRAFT_KEY_PREFIX = 'family3_form_draft_v7';
 const PHOTO_STORE = new Map();
@@ -387,6 +387,10 @@ function getActiveFormSubmissionsCollectionName() {
 
 function getActiveAppStateCollectionName() {
   return buildFamilyScopedCollectionName(DEFAULT_APP_STATE_COLLECTION, currentFamilySlug || DEFAULT_FAMILY_SLUG);
+}
+
+function getActiveUpdateRequestsCollectionName() {
+  return buildFamilyScopedCollectionName(DEFAULT_UPDATE_REQUESTS_COLLECTION, currentFamilySlug || DEFAULT_FAMILY_SLUG);
 }
 
 function updateSubmitAvailability() {
@@ -1796,14 +1800,20 @@ async function handleSubmit(event) {
     });
 
     if (isEditMode && currentEditPersonId) {
-      await updateSavedPersonInFirebase(firestoreDb, currentEditPersonId, submission);
-      logSubmitDebug('Saved person updated in Firebase app state', {
+      const requestWriteResult = await createUpdateRequestInFirebase(firestoreDb, currentEditPersonId, submission);
+      logSubmitDebug('Saved person update request queued in Firebase', {
         editPersonId: currentEditPersonId,
         familySlug: currentFamilySlug,
+        requestCollection: requestWriteResult?.collectionName || getActiveUpdateRequestsCollectionName(),
+        requestId: requestWriteResult?.requestId || null,
       });
-      setStatus(`Saved person updated for ${currentFamilyDisplayName}.`, false, true);
+      setStatus(`Update request submitted for ${currentFamilyDisplayName}.`, false, true);
       localStorage.removeItem(getCurrentDraftKey());
       lastAutoSaveStamp = '';
+      currentStep = stepPanels.length - 1;
+      updateWizardUI();
+      startSubmitRestartCountdown(5);
+      logSubmitDebug('Draft cleared and success countdown started after edit request submit');
       if (draftHintText) draftHintText.textContent = t('hero.autoSave');
       return;
     }
@@ -1990,9 +2000,10 @@ async function findExistingPersonByFullName(db, fullName) {
   return null;
 }
 
-async function updateSavedPersonInFirebase(db, recordId, submission) {
-  const collectionRef = db.collection(getActiveAppStateCollectionName());
-  const docRef = collectionRef.doc(DEFAULT_SAVED_PEOPLE_DOCUMENT);
+async function createUpdateRequestInFirebase(db, recordId, submission) {
+  const updateRequestsCollectionName = getActiveUpdateRequestsCollectionName();
+  const collectionRef = db.collection(updateRequestsCollectionName);
+  const docRef = db.collection(getActiveAppStateCollectionName()).doc(DEFAULT_SAVED_PEOPLE_DOCUMENT);
   const snapshot = await docRef.get();
   if (!snapshot.exists) {
     throw new Error('The saved people library for this family could not be found.');
@@ -2001,15 +2012,16 @@ async function updateSavedPersonInFirebase(db, recordId, submission) {
   const raw = snapshot.data() || {};
   const envelopeData = raw?.data && typeof raw.data === 'object' ? raw.data : raw;
   const savedPeople = Array.isArray(envelopeData?.savedPeople) ? envelopeData.savedPeople : [];
-  const targetIndex = savedPeople.findIndex((record) => getSavedPersonId(record) === recordId);
-  if (targetIndex < 0) {
+  const existingRecord = savedPeople.find((record) => getSavedPersonId(record) === recordId);
+  if (!existingRecord) {
     throw new Error('The saved person referenced by this edit link could not be found.');
   }
 
-  const existingRecord = savedPeople[targetIndex] || {};
   const existingPerson = existingRecord.person || {};
-  const nextNow = new Date().toISOString();
-  const nextRecord = {
+  const nowIso = new Date().toISOString();
+  const requestId = `update_${String(recordId || '').trim() || 'person'}_${Date.now()}`;
+  const requestDocRef = collectionRef.doc(requestId);
+  const proposedRecord = {
     ...existingRecord,
     familySlug: currentFamilySlug || existingRecord.familySlug || '',
     familyDisplayName: currentFamilyDisplayName || existingRecord.familyDisplayName || '',
@@ -2017,13 +2029,6 @@ async function updateSavedPersonInFirebase(db, recordId, submission) {
     person: {
       ...existingPerson,
       ...submission.person,
-      submissionMeta: {
-        ...(existingPerson.submissionMeta || {}),
-        ...(submission.person.submissionMeta || {}),
-        submittedAt: existingPerson.submissionMeta?.submittedAt || submission.person.submissionMeta?.submittedAt || nextNow,
-        updatedAt: nextNow,
-        status: 'updated',
-      },
       node: existingPerson.node || submission.person.node || {
         title: '',
         coverImage: '',
@@ -2032,30 +2037,40 @@ async function updateSavedPersonInFirebase(db, recordId, submission) {
         location: '',
         notes: '',
       },
+      submissionMeta: {
+        ...(existingPerson.submissionMeta || {}),
+        ...(submission.person.submissionMeta || {}),
+        submittedAt: existingPerson.submissionMeta?.submittedAt || submission.person.submissionMeta?.submittedAt || nowIso,
+        updatedAt: nowIso,
+        status: 'pending_update',
+      },
       relationships: submission.person.relationships || existingPerson.relationships || {},
     },
   };
 
-  const nextSavedPeople = [...savedPeople];
-  nextSavedPeople[targetIndex] = nextRecord;
-  familySavedPeopleCache.set(currentFamilySlug, nextSavedPeople);
+  const payload = {
+    requestId,
+    requestType: 'person_update',
+    status: 'pending',
+    familySlug: currentFamilySlug || DEFAULT_FAMILY_SLUG,
+    familyDisplayName: currentFamilyDisplayName || DEFAULT_FAMILY_DISPLAY_NAME,
+    targetPersonId: recordId,
+    targetPersonName: proposedRecord?.person?.name || existingPerson?.name || '',
+    originalRecord: existingRecord,
+    proposedRecord,
+    summary: `Requested update for ${proposedRecord?.person?.name || 'Unnamed person'}`,
+    submittedAt: nowIso,
+    updatedAt: nowIso,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+  };
 
-  const nextPayload = raw?.data && typeof raw.data === 'object'
-    ? {
-        ...raw,
-        data: {
-          ...envelopeData,
-          savedPeople: nextSavedPeople,
-        },
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      }
-    : {
-        ...envelopeData,
-        savedPeople: nextSavedPeople,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      };
+  await requestDocRef.set(payload, { merge: false });
+  const writtenSnapshot = await requestDocRef.get();
+  if (!writtenSnapshot.exists) {
+    throw new Error(`The update request could not be written to ${updateRequestsCollectionName}.`);
+  }
 
-  await docRef.set(nextPayload, { merge: false });
+  return { requestId, collectionName: updateRequestsCollectionName };
 }
 
 function renderDuplicatePreview(match) {
