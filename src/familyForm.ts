@@ -393,6 +393,19 @@ function getActiveUpdateRequestsCollectionName() {
   return buildFamilyScopedCollectionName(DEFAULT_UPDATE_REQUESTS_COLLECTION, currentFamilySlug || DEFAULT_FAMILY_SLUG);
 }
 
+function getCandidateCollectionNames(baseName) {
+  const activeName = buildFamilyScopedCollectionName(baseName, currentFamilySlug || DEFAULT_FAMILY_SLUG);
+  return [...new Set([activeName, baseName].map((value) => String(value || '').trim()).filter(Boolean))];
+}
+
+function getCandidateAppStateCollectionNames() {
+  return getCandidateCollectionNames(DEFAULT_APP_STATE_COLLECTION);
+}
+
+function getCandidateFormSubmissionCollectionNames() {
+  return getCandidateCollectionNames(DEFAULT_FORM_SUBMISSIONS_COLLECTION);
+}
+
 function updateSubmitAvailability() {
   if (!submitBtn) return;
   const shouldDisable = isRestartCountdownActive || !currentFamilyIsVerified;
@@ -452,10 +465,18 @@ async function verifyCurrentFamilySelection() {
     if (!firestoreDb) {
       firestoreDb = initializeFirebase(FRONTEND_CONFIG.firebase);
     }
-    const scopedCollection = getActiveAppStateCollectionName();
-    const configSnapshot = await firestoreDb.collection(scopedCollection).doc('familytree.config').get();
+
+    let familyConfigExists = false;
+    for (const collectionName of getCandidateAppStateCollectionNames()) {
+      const configSnapshot = await firestoreDb.collection(collectionName).doc('familytree.config').get();
+      if (configSnapshot.exists) {
+        familyConfigExists = true;
+        break;
+      }
+    }
+
     if (validationToken !== familyValidationToken) return currentFamilyIsVerified;
-    currentFamilyIsVerified = Boolean(configSnapshot.exists);
+    currentFamilyIsVerified = familyConfigExists;
     if (currentFamilyIsVerified) {
       const matched = findFamilyOption(rawValue) || findFamilyOption(currentFamilySlug);
       if (matched) {
@@ -500,21 +521,46 @@ function getSavedPersonId(record) {
   return String(record?.firebaseDocumentId || record?.person?.firebaseDocumentId || '').trim();
 }
 
+function readSavedPeopleFromSnapshot(snapshot) {
+  if (!snapshot?.exists) return [];
+  const raw = snapshot.data() || {};
+  const data = raw?.data && typeof raw.data === 'object' ? raw.data : raw;
+  const savedPeople = Array.isArray(data?.savedPeople) ? data.savedPeople : [];
+  return savedPeople.filter((record) => getSavedPersonName(record));
+}
+
+function mergeSavedPeopleRecords(records = []) {
+  const next = [];
+  const seenKeys = new Set();
+
+  (Array.isArray(records) ? records : []).forEach((record) => {
+    const recordId = getSavedPersonId(record);
+    const recordName = normalizeComparableValue(getSavedPersonName(record));
+    const key = recordId || recordName;
+    if (!key || seenKeys.has(key)) return;
+    seenKeys.add(key);
+    next.push(record);
+  });
+
+  return next;
+}
+
 async function fetchSavedPeopleForCurrentFamily(db) {
   if (!currentFamilySlug) return [];
   if (familySavedPeopleCache.has(currentFamilySlug)) {
     return familySavedPeopleCache.get(currentFamilySlug) || [];
   }
 
-  const snapshot = await db.collection(getActiveAppStateCollectionName()).doc(DEFAULT_SAVED_PEOPLE_DOCUMENT).get();
-  let records = [];
-  if (snapshot.exists) {
-    const raw = snapshot.data() || {};
-    const data = raw?.data && typeof raw.data === 'object' ? raw.data : raw;
-    const savedPeople = Array.isArray(data?.savedPeople) ? data.savedPeople : [];
-    records = savedPeople.filter((record) => getSavedPersonName(record));
+  const collectedRecords = [];
+  for (const collectionName of getCandidateAppStateCollectionNames()) {
+    const savedPeopleSnapshot = await db.collection(collectionName).doc(DEFAULT_SAVED_PEOPLE_DOCUMENT).get();
+    collectedRecords.push(...readSavedPeopleFromSnapshot(savedPeopleSnapshot));
+
+    const legacyCombinedSnapshot = await db.collection(collectionName).doc('family-tree-state').get();
+    collectedRecords.push(...readSavedPeopleFromSnapshot(legacyCombinedSnapshot));
   }
 
+  const records = mergeSavedPeopleRecords(collectedRecords);
   familySavedPeopleCache.set(currentFamilySlug, records);
   return records;
 }
@@ -862,10 +908,37 @@ function applyEditModeUiState() {
   submitBtn.textContent = isEditMode ? t('status.updatePerson') : t('buttons.submit');
 }
 
+
+async function resolveEditablePersonRecord(db, recordId) {
+  const trimmedRecordId = String(recordId || '').trim();
+  if (!db || !trimmedRecordId) return null;
+
+  const savedPeopleRecords = await fetchSavedPeopleForCurrentFamily(db);
+  const matchedSavedPerson = savedPeopleRecords.find((record) => getSavedPersonId(record) === trimmedRecordId);
+  if (matchedSavedPerson) {
+    return matchedSavedPerson;
+  }
+
+  for (const collectionName of getCandidateFormSubmissionCollectionNames()) {
+    const docSnapshot = await db.collection(collectionName).doc(trimmedRecordId).get();
+    if (!docSnapshot.exists) continue;
+    const record = docSnapshot.data() || {};
+    return {
+      ...record,
+      firebaseDocumentId: docSnapshot.id,
+      person: {
+        ...(record.person || {}),
+        firebaseDocumentId: docSnapshot.id,
+      },
+    };
+  }
+
+  return null;
+}
+
 async function loadEditModePerson() {
   if (!firestoreDb || !currentEditPersonId || !currentFamilySlug) return false;
-  const records = await fetchSavedPeopleForCurrentFamily(firestoreDb);
-  const matched = records.find((record) => getSavedPersonId(record) === currentEditPersonId);
+  const matched = await resolveEditablePersonRecord(firestoreDb, currentEditPersonId);
   if (!matched) {
     setFormAccessState(false, '', 'status.invalidEditLink');
     setStatus('', false, true);
@@ -2089,12 +2162,13 @@ function clearDuplicatePreview() {
 }
 
 async function logSavedSubmissionFromFirebase(db, documentId) {
-  const docSnapshot = await db.collection(getActiveFormSubmissionsCollectionName()).doc(documentId).get();
-  if (!docSnapshot.exists) {
-    console.warn('The saved Firebase record could not be loaded again for console logging.', documentId);
+  for (const collectionName of getCandidateFormSubmissionCollectionNames()) {
+    const docSnapshot = await db.collection(collectionName).doc(documentId).get();
+    if (!docSnapshot.exists) continue;
+    console.log('Family3 saved Firebase record:', { collectionName, documentId: docSnapshot.id, ...docSnapshot.data() });
     return;
   }
-  console.log('Family3 saved Firebase record:', { documentId: docSnapshot.id, ...docSnapshot.data() });
+  console.warn('The saved Firebase record could not be loaded again for console logging.', documentId);
 }
 
 function persistDraft() {
