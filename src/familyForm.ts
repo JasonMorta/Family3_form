@@ -21,8 +21,8 @@ const RELATIONSHIP_GROUPS = {
     singular: 'child',
     singularLabelKey: 'entryLabels.child',
     includeBirthDate: false,
-    optionValues: ['Biological child', 'Adopted child', 'Stepchild', 'Foster child', 'Ward', 'Other'],
-    optionKeys: ['options.child.biological', 'options.child.adopted', 'options.child.step', 'options.child.foster', 'options.child.ward', 'options.other'],
+    optionValues: ['Biological child', 'Adopted child', 'Stepchild', 'Foster child', 'Ward', 'Family child', 'Other'],
+    optionKeys: ['options.child.biological', 'options.child.adopted', 'options.child.step', 'options.child.foster', 'options.child.ward', 'options.child.family', 'options.other'],
     labelKey: 'relationship.childType',
     addButtonKey: 'buttons.addChild',
   },
@@ -122,7 +122,7 @@ const translations = {
       gender: { female: 'Female', male: 'Male', other: 'Other', preferNotToSay: 'Prefer not to say' },
       marital: { single: 'Single', married: 'Married', divorced: 'Divorced', widowed: 'Widowed', separated: 'Separated', partnered: 'Partnered' },
       parent: { biological: 'Biological parent', adoptive: 'Adoptive parent', step: 'Step-parent', foster: 'Foster parent', guardian: 'Guardian' },
-      child: { biological: 'Biological child', adopted: 'Adopted child', step: 'Stepchild', foster: 'Foster child', ward: 'Ward' },
+      child: { biological: 'Biological child', adopted: 'Adopted child', step: 'Stepchild', foster: 'Foster child', ward: 'Ward', family: 'Family child' },
       sibling: { full: 'Full sibling', half: 'Half sibling', step: 'Step-sibling', adoptive: 'Adoptive sibling', foster: 'Foster sibling' },
       partner: { wife: 'Wife', husband: 'Husband', exWife: 'Ex-wife', exHusband: 'Ex-husband', girlfriend: 'Girlfriend', boyfriend: 'Boyfriend', fiance: 'Fiancé / Fiancée', partner: 'Partner', other: 'Other' },
     },
@@ -223,7 +223,7 @@ const translations = {
       gender: { female: 'Vroulik', male: 'Manlik', other: 'Ander', preferNotToSay: 'Verkies om nie te sê nie' },
       marital: { single: 'Ongetroud', married: 'Getroud', divorced: 'Geskei', widowed: 'Weduwee of wewenaar', separated: 'Apart', partnered: 'In ’n verhouding' },
       parent: { biological: 'Biologiese ouer', adoptive: 'Aangenome ouer', step: 'Stiefouer', foster: 'Pleegouer', guardian: 'Voog' },
-      child: { biological: 'Biologiese kind', adopted: 'Aangenome kind', step: 'Stiefkind', foster: 'Pleegkind', ward: 'Wykind' },
+      child: { biological: 'Biologiese kind', adopted: 'Aangenome kind', step: 'Stiefkind', foster: 'Pleegkind', ward: 'Wykind', family: 'Familiekind' },
       sibling: { full: 'Vol broer of suster', half: 'Halfbroer of -suster', step: 'Stiefbroer of -suster', adoptive: 'Aangenome broer of suster', foster: 'Pleegbroer of -suster' },
       partner: { wife: 'Vrou', husband: 'Man', exWife: 'Eks-vrou', exHusband: 'Eks-man', girlfriend: 'Meisie', boyfriend: 'Kêrel', fiance: 'Verloofde', partner: 'Maat', other: 'Ander' },
     },
@@ -281,6 +281,7 @@ let reviewSummary = null;
 let partnerSection = null;
 let wizardSidebar = null;
 let wizardMobileStepCount = null;
+let wizardMobileFooterStepCount = null;
 let wizardStage = null;
 let stepPanels = [];
 let relationshipAutocompleteNames = [];
@@ -313,6 +314,7 @@ function cacheDomRefs() {
   partnerSection = document.getElementById('partnerSection');
   wizardSidebar = document.getElementById('wizardSidebar');
   wizardMobileStepCount = document.getElementById('wizardMobileStepCount');
+  wizardMobileFooterStepCount = document.getElementById('wizardMobileFooterStepCount');
   wizardStage = document.querySelector('.wizard-stage');
   stepPanels = [...document.querySelectorAll('.step-panel')];
 
@@ -734,8 +736,9 @@ function buildNameAutocomplete(nameInput, options = {}) {
     menuClassName = 'partner-name-menu',
   } = options;
   if (!nameInput) return;
+  const anchor = ensureAutocompleteAnchor(nameInput);
   const menu = ensureAutocompleteMenu(nameInput, menuClassName);
-  if (!menu) return;
+  if (!menu || !anchor) return;
 
   const renderMenu = () => {
     const query = normalizeComparableValue(nameInput.value);
@@ -746,6 +749,8 @@ function buildNameAutocomplete(nameInput, options = {}) {
     menu.innerHTML = names.length
       ? names.map((name) => `<button type="button" class="partner-name-option" data-name="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('')
       : `<p class="partner-name-empty">${escapeHtml(t('common.selectOne'))}</p>`;
+
+    positionDropdownMenu(menu, anchor, 220);
 
     menu.querySelectorAll('[data-name]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -759,10 +764,14 @@ function buildNameAutocomplete(nameInput, options = {}) {
 
   nameInput.addEventListener('focus', () => {
     renderMenu();
-    if (getAutocompleteNames().length) menu.classList.remove('hidden');
+    if (getAutocompleteNames().length) {
+      positionDropdownMenu(menu, anchor, 220);
+      menu.classList.remove('hidden');
+    }
   });
   nameInput.addEventListener('input', () => {
     renderMenu();
+    positionDropdownMenu(menu, anchor, 220);
     menu.classList.remove('hidden');
     persistDraft();
   });
@@ -782,6 +791,14 @@ function buildNameAutocomplete(nameInput, options = {}) {
       menu.classList.add('hidden');
     }
   });
+
+  window.addEventListener('resize', () => {
+    if (!menu.classList.contains('hidden')) positionDropdownMenu(menu, anchor, 220);
+  });
+
+  window.addEventListener('scroll', () => {
+    if (!menu.classList.contains('hidden')) positionDropdownMenu(menu, anchor, 220);
+  }, true);
 
   nameInput._renderNameAutocompleteMenu = renderMenu;
 }
@@ -1151,6 +1168,7 @@ function updateWizardUI() {
   const stepCounterText = t('steps.counter', { current: currentStep + 1, total: stepPanels.length });
   wizardStepCount.textContent = stepCounterText;
   if (wizardMobileStepCount) wizardMobileStepCount.textContent = stepCounterText;
+  if (wizardMobileFooterStepCount) wizardMobileFooterStepCount.textContent = stepCounterText;
   prevStepBtn.disabled = isRestartCountdownActive || currentStep === 0;
   const isLast = currentStep === stepPanels.length - 1;
   nextStepBtn.classList.toggle('hidden', isLast);
@@ -2235,6 +2253,22 @@ function setStatus(message, isError = false, isSuccess = false) {
   statusMessage.classList.toggle('is-success', Boolean(isSuccess));
 }
 
+function getDropdownDirection(anchorOrMenu, preferredMaxHeight = 260) {
+  const anchorRect = anchorOrMenu.getBoundingClientRect();
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  const spaceBelow = viewportHeight - anchorRect.bottom;
+  const spaceAbove = anchorRect.top;
+  const needsOpenUp = spaceBelow < preferredMaxHeight && spaceAbove > spaceBelow;
+  const availableHeight = Math.max(140, Math.min(preferredMaxHeight, (needsOpenUp ? spaceAbove : spaceBelow) - 16));
+  return { needsOpenUp, availableHeight };
+}
+
+function positionDropdownMenu(menu, anchorOrMenu, preferredMaxHeight = 260) {
+  const { needsOpenUp, availableHeight } = getDropdownDirection(anchorOrMenu, preferredMaxHeight);
+  menu.classList.toggle('open-up', needsOpenUp);
+  menu.style.maxHeight = `${availableHeight}px`;
+}
+
 function loadImageFromFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -2268,9 +2302,11 @@ function buildCustomSelects(scope = document) {
 
     trigger.addEventListener('click', (event) => {
       event.preventDefault();
+      const willOpen = menu.classList.contains('hidden');
       closeAllCustomSelects(wrapper);
-      wrapper.classList.toggle('is-open');
-      menu.classList.toggle('hidden');
+      wrapper.classList.toggle('is-open', willOpen);
+      menu.classList.toggle('hidden', !willOpen);
+      if (willOpen) positionDropdownMenu(menu, wrapper, 260);
     });
 
     document.addEventListener('click', (event) => {
@@ -2279,6 +2315,14 @@ function buildCustomSelects(scope = document) {
         menu.classList.add('hidden');
       }
     });
+
+    window.addEventListener('resize', () => {
+      if (!menu.classList.contains('hidden')) positionDropdownMenu(menu, wrapper, 260);
+    });
+
+    window.addEventListener('scroll', () => {
+      if (!menu.classList.contains('hidden')) positionDropdownMenu(menu, wrapper, 260);
+    }, true);
 
     refreshCustomSelect(select);
   });
@@ -2308,6 +2352,7 @@ function refreshCustomSelect(select) {
   });
   const selected = select.selectedOptions[0] || select.options[0];
   trigger.textContent = selected ? getOptionLabel(selected) : t('common.selectOne');
+  if (!menu.classList.contains('hidden')) positionDropdownMenu(menu, wrapper, 260);
 }
 
 function getOptionLabel(option) {

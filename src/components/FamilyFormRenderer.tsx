@@ -92,11 +92,13 @@ function RepeatableGroupCard({ name, titleKey, addButtonKey }: { name: string; t
     <div className="step-group-card">
       <div className="step-group-header">
         <h3 data-i18n={titleKey}>{titleKey}</h3>
+      </div>
+      <div className="repeatable-list" data-list={name}></div>
+      <div className="step-group-actions">
         <button className="secondary-btn btn add-entry-btn" data-add-list={name} data-i18n={addButtonKey} type="button">
           {addButtonKey}
         </button>
       </div>
-      <div className="repeatable-list" data-list={name}></div>
     </div>
   );
 }
@@ -138,11 +140,13 @@ function StepContent({ step }: { step: StepDef }) {
                 <h3 data-i18n={content.repeatableGroup.titleKey}>{content.repeatableGroup.titleKey}</h3>
                 <p className="field-help" data-i18n={content.repeatableGroup.helpKey ?? 'help.relationships'}>{content.repeatableGroup.helpKey ?? 'help.relationships'}</p>
               </div>
+            </div>
+            <div className="repeatable-list" data-list={content.repeatableGroup.name}></div>
+            <div className="step-group-actions">
               <button className="secondary-btn btn add-entry-btn" data-add-list={content.repeatableGroup.name} data-i18n={content.repeatableGroup.addButtonKey} type="button">
                 {content.repeatableGroup.addButtonKey}
               </button>
             </div>
-            <div className="repeatable-list" data-list={content.repeatableGroup.name}></div>
           </div>
         </div>
       </>
@@ -278,6 +282,9 @@ export function FamilyFormRenderer() {
                   ))}
                 </div>
                 <footer className="wizard-footer">
+                  <div className="wizard-footer-mobile-step" aria-live="polite">
+                    <span className="wizard-footer-mobile-count" id="wizardMobileFooterStepCount">Step 1 of 9</span>
+                  </div>
                   <button className="secondary-btn btn" data-i18n="buttons.back" id="prevStepBtn" type="button">Back</button>
                   <div className="wizard-footer-center">
                     <span className="wizard-step-count" id="wizardStepCount">Step 1 of 9</span>
